@@ -15,6 +15,7 @@ function CLM = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
 %   - lLM - array from left leg
 %   - epochStage - hypnogram, expects 30 second epochs
 %   - params - output struct from 'getInput2.m'
+%   - tformat - format of datetime in arousal and apnea events
 %
 % optional inputs (in this order):
 %   - apd - apnea data, from the original subject struct
