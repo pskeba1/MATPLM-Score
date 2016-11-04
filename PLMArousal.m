@@ -10,7 +10,10 @@ function [newPLM,h] = PLMArousal(PLM,ArousalData,HypnogramStart,lb,ub,fs)
 % HypnogramStart is the first data point
 
 % Form newAp, which is ApneaData with endpoint of event (in datapoints) 
-% added to 4th col. This is calculated with HypnogramStart as datapoint 1
+% added to 4th col. This is calculated with HypnogramStart as datapoint
+
+tformat = 'yyyy-mm-ddTHH:MM:SS.fff';
+
 if size(ArousalData,1) == 0
     newPLM = PLM;
     newPLM(1,12) = 0;
@@ -31,7 +34,7 @@ start_vec = datevec(HypnogramStart);
 
 for ii = 1:size(ArousalData,1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
-    ar_start = datevec(ArousalData{ii,1});
+    ar_start = datevec(ArousalData{ii,1},tformat);
     ar_ends(ii) = (etime(ar_start,start_vec) + ...
         str2double(ArousalData{ii,3})) * fs + 1;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end    
@@ -52,30 +55,7 @@ for ii = 1:size(ArousalData, 1)
                 (ar_ends(ii) + fs*ub >= PLM(jj,1) && ar_ends(ii) + fs*ub <= PLM(jj,2)) ||...
                 (ar_ends(ii) - fs*lb <= PLM(jj,1) && ar_ends(ii) + fs*ub >= PLM(jj,2))
             
-            switch ArousalData{ii,2}
-                case 'AROUSAL'
-                    newPLM(jj,12)=1;
-                case 'AROUSAL-SPONT'
-                    newPLM(jj,12)=2;
-                case 'AROUSAL-LM'
-                    newPLM(jj,12)=3;
-                case 'AROUSAL-PLM'
-                    newPLM(jj,12)=3;
-                case 'AROUSAL-APNEA'
-                    newPLM(jj,12)=4;
-                case 'AROUSAL-DESAT'
-                    newPLM(jj,12)=5;
-                case 'AROUSAL-HYPOPNEA'
-                    newPLM(jj,12)=6;
-                case 'AROUSAL-RERA'
-                    newPLM(jj,12)=7;
-                case 'AROUSAL-RESP'
-                    newPLM(jj,12)=8;
-                case 'AROUSAL-SNORE'
-                    newPLM(jj,12)=9;
-                otherwise
-                    newPLM(jj,12) = 0;
-            end
+            newPLM(jj,12) = 1;
         end
     end
 end

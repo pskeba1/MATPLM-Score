@@ -16,6 +16,10 @@ function [newPLM,h] = PLMApnea(PLM,ApneaData,HypnogramStart,lb,ub,fs)
 % arousal data are coded. Sometimes it is a 1 x 3 vector of zeros, other
 % times it is a 0 x 3 array (I don't even know what that means). We have to
 % check for both, apparently.
+
+tformat = 'yyyy-mm-ddTHH:MM:SS.fff';
+
+
 if size(ApneaData, 1) == 0
     newPLM = PLM;
     newPLM(1,11) = 0;
@@ -37,16 +41,12 @@ start_vec = datevec(HypnogramStart);
 
 for ii = 1:size(ApneaData,1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
-    ap_start = datevec(ApneaData{ii,1});
+    ap_start = datevec(ApneaData{ii,1},tformat);
     ap_ends(ii) = (etime(ap_start,start_vec) + ...
         str2double(ApneaData{ii,3})) * fs + 1;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end    
 end
 
-
-% Form newPLM, which is PLM with Apnea events in the 11th col. These exact
-% naming conventions are those output by Remlogic, and some conversion may
-% be necessary from other sleep software.
 newPLM=PLM;
 
 for ii = 1:size(ApneaData, 1)
@@ -57,35 +57,7 @@ for ii = 1:size(ApneaData, 1)
         if(ap_ends(ii) - fs*lb >= PLM(jj,1) && ap_ends(ii) - fs*lb <= PLM(jj,2)) ||...
                 (ap_ends(ii) + fs*ub >= PLM(jj,1) && ap_ends(ii) + fs*ub <= PLM(jj,2)) ||...
                 (ap_ends(ii) - fs*lb <= PLM(jj,1) && ap_ends(ii) + fs*ub >= PLM(jj,2))
-            
-            switch ApneaData{ii,2}
-                case 'APNEA'
-                    newPLM(jj,11) = 1;
-                case 'APNEA-CENTRAL'
-                    newPLM(jj,11) = 2;
-                case 'APNEA-MIXED'
-                    newPLM(jj,11) = 3;
-                case 'APNEA-OBSTRUCTIVE'
-                    newPLM(jj,11) = 4;
-                case 'DESAT'
-                    newPLM(jj,11) = 5;
-                case 'HYPOPNEA'
-                    newPLM(jj,11) = 6;
-                case 'HYPOPNEA-CENTRAL'
-                    newPLM(jj,11) = 7;
-                case 'HYPOPNEA-MIXED'
-                    newPLM(jj,11) = 8;
-                case 'HYPOPNEA-OBSTRUCTIVE'
-                    newPLM(jj,11) = 9;
-                case 'PEDIATRIC-RESP-BASELINE'
-                    newPLM(jj,11) = 10;
-                case 'RESP-MOVEMENT-STOP'
-                    newPLM(jj,11) = 11;
-                case 'SNORE'
-                    newPLM(jj,11) = 12;
-                otherwise
-                    newPLM(jj,11) = 0;
-            end
+            newPLM(jj,11) = 1; 
         end
     end
 end
