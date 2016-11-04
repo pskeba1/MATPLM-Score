@@ -11,6 +11,8 @@ function output = split_events(events_file)
 
 event_types = readtable('event_types.csv');
 
+params = getInput2(1);
+
 fid = fopen(events_file);
 
 tline = fgetl(fid);
@@ -58,6 +60,9 @@ end
 
 fclose(fid);
 
+if ~params.ars, arousals = table(); end
+if ~params.aps, apneas = table(); end
+
 % At the moment, we expect that Remlogic output will contain 30 second
 % epochs for sleep staging. Also, hopefully all the events will contain a
 % number or REM to indicate stage. This could be tough if the format is
@@ -94,11 +99,14 @@ else
     rLM = [];
 end
 
-params = getInput2(500,1);
+arcell = {}; apcell = {};
+if ~isempty(arousals), arcell = table2cell(arousals(:,1:3)); end
+if ~isempty(apneas), apcell = table2cell(apneas(:,1:3)); end
+    
+
 
 % chop off location column for apnea/arousal
-CLM = candidate_lms(rLM,lLM,ep,params,tformat,table2cell(apneas(:,1:3)),...
-    table2cell(arousals(:,1:3)),start_time);
+CLM = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
 x = periodic_lms(CLM,params);
 
 plm_results = struct();
@@ -219,7 +227,7 @@ bPLMSi = sum(plm_outputs.PLMS(:,13) == 3)/TST;
 display(sprintf('bilateral PLMS index: %.2f per hour',bPLMSi));
 end
 
-function [in,cancel] = getInput2(fs, ask)
+function [in,cancel] = getInput2(ask)
 %% [in] = getInput2(fs, ask)
 % Display a dialog window that asks the user for several initial conditions
 % and parameters. Store these conditions in the 'in' structure, to be
@@ -236,10 +244,9 @@ function [in,cancel] = getInput2(fs, ask)
 %   - ask - if false, just returns the default struct
 
 if ~ask
-    in = struct('fs',fs,'maxdur',10,'bmaxdur',15,'minIMI',10,'maxIMI',90,...
-        'lb1',0.5,'ub1',0.5,'lb2',0.5,'ub2',0.5,'lopass',...
-        round(fs * 0.45),'hipass',20,'thresh',true,'ekg',true,'inlm',...
-        true,'minNumIMI',3,'maxcomb',4);
+    in = struct('ars',true,'aps',true,'maxdur',10,'bmaxdur',15,...
+        'minIMI',10,'maxIMI',90,'lb1',0.5,'ub1',0.5,'lb2',0.5,'ub2',0.5,...
+        'inlm',true,'minNumIMI',3,'maxcomb',4);
 
     cancel = false;
 else
@@ -257,80 +264,80 @@ Prompt = {};
 Formats = {};
 DefAns = struct([]);
 
-Prompt(1,:) = {'Sampling Rate (fs)', 'fs','hz'};
-Formats(1,1).type = 'edit';
-Formats(1,1).format = 'integer';
-Formats(1,1).size = 80; % automatically assign the height
-% Formats(1,1).unitsloc = 'bottomleft';
-DefAns(1).fs = fs;
+Prompt(1,:) = {'Arousal Events' 'ars',[]};
+Formats(1,1).type = 'check';
+DefAns(1).ars = true;
 
-Prompt(end+1,:) = {'Low Pass filter', 'lopass','hz'};
-Formats(1,2).type = 'edit';
-Formats(1,2).format = 'float';
-%Formats(1,2).size = 80;
-DefAns.lopass = round(fs*0.45); % i.e. 225 at 500 hz
+Prompt(end+1,:) = {'Respiratory Events' 'aps',[]};
+Formats(1,2).type = 'check';
+DefAns.aps = true;
 
-Prompt(end+1,:) = {'High Pass filter', 'hipass','hz'};
-Formats(1,3).type = 'edit';
-Formats(1,3).format = 'float';
-%Formats(1,3).size = 80; % automatically assign the height
-DefAns.hipass = 20;
-
-Prompt(end+1,:) = {'Maximum Duration (monolateral)', 'maxdur','s'};
+Prompt(end+1,:) = {'Arousal Assoc. Pre   ', 'lb2','s'};
 Formats(2,1).type = 'edit';
 Formats(2,1).format = 'float';
-Formats(2,1).size = 80; % automatically assign the height
-DefAns.maxdur = 10;
+Formats(2,1).size = 50;
+DefAns.lb2 = 0.5;
 
-Prompt(end+1,:) = {'Maximum IMI', 'maxIMI','s'};
+Prompt(end+1,:) = {'Respiratory Assoc. Pre  ', 'lb1','s'};
 Formats(2,2).type = 'edit';
 Formats(2,2).format = 'float';
-%Formats(2,2).size = 80; % automatically assign the height
-DefAns.maxIMI = 90;
+Formats(2,2).size = 50;
+DefAns.lb1 = 2;
 
-Prompt(end+1,:) = {'Minimum IMI', 'minIMI','s'};
-Formats(2,3).type = 'edit';
-Formats(2,3).format = 'float';
-%Formats(2,3).size = 80; % automatically assign the height
-DefAns.minIMI = 10;
+Prompt(end+1,:) = {'Arousal Assoc. Post ', 'ub2','s'};
+Formats(3,1).type = 'edit';
+Formats(3,1).format = 'float';
+Formats(3,1).size = 50;
+DefAns.ub2 = 0.5;
 
-% Prompt(end+1,:) = {'Morphology Requirement' 'morph',[]};
-% Formats(3,1).type = 'check';
-% DefAns.morph = true;
+Prompt(end+1,:) = {'Respiratory Assoc. Post', 'ub1','s'};
+Formats(3,2).type = 'edit';
+Formats(3,2).format = 'float';
+Formats(3,2).size = 50;
+DefAns.ub1 = 10.25;
+
+Prompt(end+1,:) = {'Max Monolateral Dur', 'maxdur','s'};
+Formats(4,1).type = 'edit';
+Formats(4,1).format = 'float';
+Formats(4,1).size = 50;
+DefAns.maxdur = 10;
+
+Prompt(end+1,:) = {'Max Bilateral Dur           ', 'bmaxdur','s'};
+Formats(4,2).type = 'edit';
+Formats(4,2).format = 'float';
+Formats(4,2).size = 50;
+DefAns.bmaxdur = 15;
 
 Prompt(end+1,:) = {'Intervening LM Breakpoint' 'inlm',[]};
-Formats(3,1).type = 'check';
+Formats(5,1).type = 'check';
 DefAns.inlm = true;
 
-Prompt(end+1,:) = {'EKG Removal' 'ekg',[]};
-Formats(3,2).type = 'check';
-DefAns.ekg = true;
+Prompt(end+1,:) = {'Max Comb. Movements', 'maxcomb',[]};
+Formats(6,1).type = 'edit';
+Formats(6,1).format = 'integer';
+Formats(6,1).size = 50; % automatically assign the height
+DefAns.maxcomb = 4;
 
-Prompt(end+1,:) = {'Dynamic Threshold','thresh',[]};
-Formats(3,3).type = 'check';
-DefAns.thresh = true;
+Prompt(end+1,:) = {'Min num IMI for PLM run', 'minNumIMI',[]};
+Formats(6,2).type = 'edit';
+Formats(6,2).format = 'integer';
+Formats(6,2).size = 50; % automatically assign the height
+DefAns.minNumIMI = 3;
+
+Prompt(end+1,:) = {'Min IMI for PLM             ', 'minIMI','s'};
+Formats(7,1).type = 'edit';
+Formats(7,1).format = 'float';
+Formats(7,1).size = 50; % automatically assign the height
+DefAns.minIMI = 10;
+
+Prompt(end+1,:) = {'Max IMI for PLM             ', 'maxIMI','s'};
+Formats(7,2).type = 'edit';
+Formats(7,2).format = 'float';
+Formats(7,2).size = 50; % automatically assign the height
+DefAns.maxIMI = 90;
 
 [in,cancel] = inputsdlg(Prompt,Title,Formats,DefAns,Options);
-
-% Currently, there is no option to change these features in the dialog box
-% most users will not care.
-
-% respiratory event associations
-in.lb1 = 2;
-in.ub1 = 10.25;
-
-% arousal event associations
-in.lb2 = 0.5;
-in.ub2 = 0.5;
-
-% intermovement intervals for a PLM run
-in.minNumIMI = 3;
-
-% max monolateral movements to combine into a bilateral
-in.maxcomb = 4;
-
-% maximum duration of a bilateral movement
-in.bmaxdur = 15;
+in.fs = 500; % this is abitrary since our event files have time
 end
 
 end
