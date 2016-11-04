@@ -129,7 +129,7 @@ if ~isempty(CLM)
     end
     if exist('ard','var') && exist('hgs','var')
         %CLM = PLMArousal(CLM,ard,hgs,params.lb2,params.ub2,params.fs);
-        CLM = event_assoc('Arousal',CLM,apd,hgs,params.lb2,params.ub2,...
+        CLM = event_assoc('Arousal',CLM,ard,hgs,params.lb2,params.ub2,...
             params.fs,tformat);
     end
     
