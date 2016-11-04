@@ -97,7 +97,7 @@ end
 params = getInput2(500,1);
 
 % chop off location column for apnea/arousal
-CLM = candidate_lms(rLM,lLM,ep,params,table2cell(apneas(:,1:3)),...
+CLM = candidate_lms(rLM,lLM,ep,params,tformat,table2cell(apneas(:,1:3)),...
     table2cell(arousals(:,1:3)),start_time);
 x = periodic_lms(CLM,params);
 

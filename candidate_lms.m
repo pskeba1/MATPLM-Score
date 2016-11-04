@@ -1,4 +1,4 @@
-function CLM = candidate_lms(rLM,lLM,epochStage,params, varargin)
+function CLM = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
 %% CLM = candidate_lms_rev1(rLM,lLM,epochStage,params, varargin)
 % Determine candidate leg movements for PLM from monolateral LM arrays. If
 % either rLM or lLM is empty ([]), this will return monolateral candidates,
@@ -111,10 +111,10 @@ if ~isempty(CLM)
         
     % Add apnea events (col 11) and arousal events (col 12)
     if exist('apd','var') && exist('hgs','var')
-        CLM = PLMApnea(CLM,apd,hgs,params.lb1,params.ub1,params.fs);
-        
-%         CLM(CLM(:,11) > 0, 9) = 11; % BP 11 for apnea event?
-        
+        %CLM = PLMApnea(CLM,apd,hgs,params.lb1,params.ub1,params.fs);
+        CLM = event_assoc('Apnea',CLM,apd,hgs,params.lb1,params.ub1,...
+            params.fs,tformat);
+               
         % remove the movements and recalculate IMI. If we take this route,
         % remember that it adds an "invisible breakpoint" - aka, the
         % movement AFTER the respiratory event will carry the breakpoint
@@ -127,12 +127,71 @@ if ~isempty(CLM)
         CLM = CLM(CLM(:,11) == 0, :);
     end
     if exist('ard','var') && exist('hgs','var')
-        CLM = PLMArousal(CLM,ard,hgs,params.lb2,params.ub2,params.fs);
+        %CLM = PLMArousal(CLM,ard,hgs,params.lb2,params.ub2,params.fs);
+        CLM = event_assoc('Arousal',CLM,apd,hgs,params.lb2,params.ub2,...
+            params.fs,tformat);
     end
     
 end
 
 end
+
+function newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,lb,ub,fs,tformat)
+%% newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,lb,ub,fs)
+% PLMApnea adds Apnea Events to the 11th col of the PLM Matrix if there is
+% a PLM within -lb,+ub seconds of the event endpoint
+% EventData is the CISRE_Apnea matrix
+% HypnogramStart is the first data point
+
+if strcmp(event_type,'Arousal')
+    assoc_col = 12;
+elseif strcmp(event_type,'Apnea')
+    assoc_col = 11;
+end
+
+if size(EventData, 1) == 0
+    newPLM = PLM;
+    newPLM(1,11) = 0;
+    return
+end
+    
+if EventData{1,1} == 0
+    newPLM = PLM;
+    newPLM(1,11) = 0;
+    return
+end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
+event_ends = zeros(size(EventData,1),1);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
+start_vec = datevec(HypnogramStart);
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end
+
+for ii = 1:size(EventData,1)
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
+    event_start = datevec(EventData{ii,1},tformat);
+    event_ends(ii) = (etime(event_start,start_vec) + ...
+        str2double(EventData{ii,3})) * fs + 1;
+    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end    
+end
+
+newPLM=PLM;
+
+for ii = 1:size(EventData, 1)
+    for jj = 1:size(PLM, 1)
+        %If 'lb' seconds before the apnea endpoint is within the PLM interval,
+        %or if 'ub' seconds after the endpoint is within the PLM interval
+        %or if the PLM interval is within the apnea interval
+        if(event_ends(ii) - fs*lb >= PLM(jj,1) && event_ends(ii) - fs*lb <= PLM(jj,2)) ||...
+                (event_ends(ii) + fs*ub >= PLM(jj,1) && event_ends(ii) + fs*ub <= PLM(jj,2)) ||...
+                (event_ends(ii) - fs*lb <= PLM(jj,1) && event_ends(ii) + fs*ub >= PLM(jj,2))
+            newPLM(jj,11) = 1; 
+        end
+    end
+end
+end
+    
 
 function [CLM] = rOV2(lLM,rLM,fs)
 % Combine bilateral movements if they are separated by < 0.5 seconds
