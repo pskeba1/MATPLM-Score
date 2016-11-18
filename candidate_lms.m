@@ -50,6 +50,9 @@ elseif ~isempty(rLM)
     
     CLM = rLM;
     CLM(:,11:13) = 0; % we need these columns anyway
+else
+    CLM = [];
+    return
 end
 
 % if a bilateral movement consists of one or more monolateral movements

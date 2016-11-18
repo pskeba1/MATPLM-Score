@@ -1,4 +1,4 @@
-function output = split_events(events_file)
+function split_events()
 %% output = split_events(events_file)
 % This functions takes as input a Remlogic file with all the events that
 % one would wish to score. Event types should be specified before running
@@ -12,7 +12,6 @@ function output = split_events(events_file)
 
 [events_files,event_paths] = uigetfile('.txt','Select input event files:',...
     'sample_events/BC1-Events.txt','MultiSelect','on');
-
 
 load('history/last_used_defaults.mat','last_used');
 %%% begin sleep stage prompt
@@ -57,132 +56,137 @@ right_loc = cellstr(plm_event_names{3,1});
 
 params = getInput2(1);
 
-fid = fopen(events_file);
 
-tline = fgetl(fid);
-indata = false;
-while ~feof(fid)
+for each_file = 1:length(events_files)
     
-    % Is this language dependent? Also, may be able to automatically
-    % extract time format from this file
-    if ~isempty(strfind(tline,'Time [hh:mm:ss.xxx]')) ||... 
-            ~isempty(strfind(tline,'Time [hh:mm:ss]'))
-        
-        if strfind(tline,'Time [hh:mm:ss.xxx]') 
-            tformat = 'yyyy-mm-ddTHH:MM:SS.fff'; 
-        else
-            tformat = 'yyyy-mm-ddTHH:MM:SS';
-        end
-        indata=true;
-        label_line = {'Time','Event','Duration','Location'};
-        
-        sleep_stages = cell2table(cell(0,4),'VariableNames',label_line');
-        arousals = cell2table(cell(0,4),'VariableNames',label_line');
-        apneas = cell2table(cell(0,4),'VariableNames',label_line');
-        lms = cell2table(cell(0,4),'VariableNames',label_line');
-    end
+    outfile_path = [events_files{each_file}(1:end-4), '.report'];
+    outfile_path = [event_paths, outfile_path];
+    
+    fid = fopen([event_paths, events_files{each_file}]);
     
     tline = fgetl(fid);
-    
-    % if the last line was the start of the data part of the file, we'll
-    % begin processing things
-    if indata
-        dataline = strsplit(tline,'\t'); % should be tab delineated
+    indata = false;
+    while ~feof(fid)
         
-        %if size(strmatch(dataline(2),event_types.Sleep_Stages),1) > 0
-        if size(strmatch(dataline(2),sleep_defaults),1) > 0
-            sleep_stages = [sleep_stages; cell2table(dataline,'VariableNames',label_line)];
-        %elseif size(strmatch(dataline(2),event_types.Arousal_Events),1) > 0
-        elseif size(strmatch(dataline(2),arousal_defaults),1) > 0
-            arousals = [arousals; cell2table(dataline,'VariableNames',label_line)];
-        %elseif size(strmatch(dataline(2),event_types.Respiratory_Events),1) > 0
-        elseif size(strmatch(dataline(2),apnea_defaults),1) > 0
-            apneas = [apneas; cell2table(dataline,'VariableNames',label_line)];
-        %elseif size(strmatch(dataline(2),event_types.PLM_Events),1) > 0
-        elseif size(strmatch(dataline(2),lma_defaults),1) > 0
-            lms = [lms; cell2table(dataline,'VariableNames',label_line)];
+        % Is this language dependent? Also, may be able to automatically
+        % extract time format from this file
+        if ~isempty(strfind(tline,'Time [hh:mm:ss.xxx]')) ||...
+                ~isempty(strfind(tline,'Time [hh:mm:ss]'))
+            
+            if strfind(tline,'Time [hh:mm:ss.xxx]')
+                tformat = 'yyyy-mm-ddTHH:MM:SS.fff';
+            else
+                tformat = 'yyyy-mm-ddTHH:MM:SS';
+            end
+            indata=true;
+            label_line = {'Time','Event','Duration','Location'};
+            
+            sleep_stages = cell2table(cell(0,4),'VariableNames',label_line');
+            arousals = cell2table(cell(0,4),'VariableNames',label_line');
+            apneas = cell2table(cell(0,4),'VariableNames',label_line');
+            lms = cell2table(cell(0,4),'VariableNames',label_line');
         end
-    end
         
-end
-
-fclose(fid);
-
-if ~params.ars, arousals = table(); end
-if ~params.aps, apneas = table(); end
-
-% At the moment, we expect that Remlogic output will contain 30 second
-% epochs for sleep staging. Also, hopefully all the events will contain a
-% number or REM to indicate stage. This could be tough if the format is
-% very different in international versions.
-T = sleep_stages{:,2};
-ep = zeros(size(T,1),1);
-ep(~cellfun('isempty', strfind(T,sleep_stage_names{3}))) = 1;
-ep(~cellfun('isempty', strfind(T,sleep_stage_names{4}))) = 2;
-ep(~cellfun('isempty', strfind(T,sleep_stage_names{5}))) = 3;
-ep(~cellfun('isempty', strfind(T,'4'))) = 4;
-ep(~cellfun('isempty', strfind(T,sleep_stage_names{1}))) = 5;
-
-
-% TODO: multilanguage support
-%lLM_tbl = lms(find(not(cellfun('isempty', strfind(lms.Location,'Left')))),:);
-lLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,left_loc{1})),:);
-%rLM_tbl = lms(find(not(cellfun('isempty', strfind(lms.Location,right_loc)))),:);
-rLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,right_loc{1})),:);
-
-start_time = datenum(sleep_stages{1,1},tformat);
-
-% Remember, we're going to just assume 500 hz becuase it's purely arbitrary
-% past the detection step.
-if ~isempty(lLM_tbl)
-    lLM = round((datenum(lLM_tbl{:,1},tformat)-start_time) * 86500 * 500);
+        tline = fgetl(fid);
+        
+        % if the last line was the start of the data part of the file, we'll
+        % begin processing things
+        if indata
+            dataline = strsplit(tline,'\t'); % should be tab delineated
+            
+            %if size(strmatch(dataline(2),event_types.Sleep_Stages),1) > 0
+            if size(strmatch(dataline(2),sleep_defaults),1) > 0
+                sleep_stages = [sleep_stages; cell2table(dataline,'VariableNames',label_line)];
+                %elseif size(strmatch(dataline(2),event_types.Arousal_Events),1) > 0
+            elseif size(strmatch(dataline(2),arousal_defaults),1) > 0
+                arousals = [arousals; cell2table(dataline,'VariableNames',label_line)];
+                %elseif size(strmatch(dataline(2),event_types.Respiratory_Events),1) > 0
+            elseif size(strmatch(dataline(2),apnea_defaults),1) > 0
+                apneas = [apneas; cell2table(dataline,'VariableNames',label_line)];
+                %elseif size(strmatch(dataline(2),event_types.PLM_Events),1) > 0
+            elseif size(strmatch(dataline(2),lma_defaults),1) > 0
+                lms = [lms; cell2table(dataline,'VariableNames',label_line)];
+            end
+        end
+        
+    end
     
-    lLM(:,2) = lLM(:,1) + 500 * cellfun(@str2double, lLM_tbl{:,3});
-else
-    lLM = [];
-end
-
-if ~isempty(rLM_tbl)
-    rLM = round((datenum(rLM_tbl{:,1},tformat)-start_time) * 86500 * 500);
-    rLM(:,2) = rLM(:,1) + 500 * cellfun(@str2double, rLM_tbl{:,3});
-else
-    rLM = [];
-end
-
-arcell = {}; apcell = {};
-if ~isempty(arousals), arcell = table2cell(arousals(:,1:3)); end
-if ~isempty(apneas), apcell = table2cell(apneas(:,1:3)); end
+    fclose(fid);
     
-
-
-% chop off location column for apnea/arousal
-CLM = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
-x = periodic_lms(CLM,params);
-
-plm_results = struct();
-plm_results.PLM = x;
-plm_results.PLMS = x(x(:,6) > 0,:);
-plm_results.CLM = CLM;
-plm_results.CLMS = CLM(CLM(:,6) > 0,:);
-plm_results.epochstage = ep;
-
-generate_report(plm_results, params);
-
-output = struct('sleepstages',sleep_stages,'arousals',arousals,...
-    'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
+    if ~params.ars, arousals = table(); end
+    if ~params.aps, apneas = table(); end
+    
+    % At the moment, we expect that Remlogic output will contain 30 second
+    % epochs for sleep staging. Also, hopefully all the events will contain a
+    % number or REM to indicate stage. This could be tough if the format is
+    % very different in international versions.
+    T = sleep_stages{:,2};
+    ep = zeros(size(T,1),1);
+    ep(~cellfun('isempty', strfind(T,sleep_stage_names{3}))) = 1;
+    ep(~cellfun('isempty', strfind(T,sleep_stage_names{4}))) = 2;
+    ep(~cellfun('isempty', strfind(T,sleep_stage_names{5}))) = 3;
+    ep(~cellfun('isempty', strfind(T,'4'))) = 4;
+    ep(~cellfun('isempty', strfind(T,sleep_stage_names{1}))) = 5;
+    
+    % Select left and right LMs
+    lLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,left_loc{1})),:);
+    rLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,right_loc{1})),:);
+    
+    start_time = datenum(sleep_stages{1,1},tformat);
+    
+    % Remember, we're going to just assume 500 hz becuase it's purely arbitrary
+    % past the detection step.
+    if ~isempty(lLM_tbl)
+        lLM = round((datenum(lLM_tbl{:,1},tformat)-start_time) * 86500 * 500);
+        
+        lLM(:,2) = lLM(:,1) + 500 * cellfun(@str2double, lLM_tbl{:,3});
+    else
+        lLM = [];
+    end
+    
+    if ~isempty(rLM_tbl)
+        rLM = round((datenum(rLM_tbl{:,1},tformat)-start_time) * 86500 * 500);
+        rLM(:,2) = rLM(:,1) + 500 * cellfun(@str2double, rLM_tbl{:,3});
+    else
+        rLM = [];
+    end
+    
+    arcell = {}; apcell = {};
+    if ~isempty(arousals), arcell = table2cell(arousals(:,1:3)); end
+    if ~isempty(apneas), apcell = table2cell(apneas(:,1:3)); end
+    
+    
+    
+    % chop off location column for apnea/arousal
+    CLM = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
+    x = periodic_lms(CLM,params);
+    
+    plm_results = struct();
+    plm_results.PLM = x;
+    plm_results.PLMS = x(x(:,6) > 0,:);
+    plm_results.CLM = CLM;
+    plm_results.CLMS = CLM(CLM(:,6) > 0,:);
+    plm_results.epochstage = ep;
+    
+    generate_report(plm_results, params, outfile_path);
+    
+    % output = struct('sleepstages',sleep_stages,'arousals',arousals,...
+    %    'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
+    
+end
 end
 
-function generate_report(plm_outputs, params)
+function generate_report(plm_outputs, params, filename)
 %% generate_report(plm_outputs, params)
 % Display to console pertinent features
 % plm_outputs must at least contain epochstage,PLM,PLMS,CLM
 %
 % TOD0: report log IMI, allow output to file
 
-fid = fopen('tmp_testout.txt','w+');
+fid = fopen(filename,'w+');
 
 ep = plm_outputs.epochstage;
-TST = sum(ep > 0,1)/120; TWT = sum(ep == 0,1)/120; 
+TST = sum(ep > 0,1)/120; TWT = sum(ep == 0,1)/120;
 
 fprintf(fid,'Total sleep time: %.2f hours\n',TST);
 
@@ -287,97 +291,97 @@ if ~ask
     in = struct('ars',true,'aps',true,'maxdur',10,'bmaxdur',15,...
         'minIMI',10,'maxIMI',90,'lb1',0.5,'ub1',0.5,'lb2',0.5,'ub2',0.5,...
         'inlm',true,'minNumIMI',3,'maxcomb',4);
-
+    
     cancel = false;
 else
-
-Title = 'MATPLM Parameters';
-
-%%%% SETTING DIALOG OPTIONS
-Options.Resize = 'on';
-Options.Interpreter = 'tex';
-Options.CancelButton = 'on';
-Options.ButtonNames = {'Continue','Cancel'}; %<- default names, included here just for illustration
-Option.Dim = 4; % Horizontal dimension in fields
-
-Prompt = {};
-Formats = {};
-DefAns = struct([]);
-
-Prompt(1,:) = {'Arousal Events' 'ars',[]};
-Formats(1,1).type = 'check';
-DefAns(1).ars = true;
-
-Prompt(end+1,:) = {'Respiratory Events' 'aps',[]};
-Formats(1,2).type = 'check';
-DefAns.aps = true;
-
-Prompt(end+1,:) = {'Arousal Assoc. Pre   ', 'lb2','s'};
-Formats(2,1).type = 'edit';
-Formats(2,1).format = 'float';
-Formats(2,1).size = 50;
-DefAns.lb2 = 0.5;
-
-Prompt(end+1,:) = {'Respiratory Assoc. Pre  ', 'lb1','s'};
-Formats(2,2).type = 'edit';
-Formats(2,2).format = 'float';
-Formats(2,2).size = 50;
-DefAns.lb1 = 2;
-
-Prompt(end+1,:) = {'Arousal Assoc. Post ', 'ub2','s'};
-Formats(3,1).type = 'edit';
-Formats(3,1).format = 'float';
-Formats(3,1).size = 50;
-DefAns.ub2 = 0.5;
-
-Prompt(end+1,:) = {'Respiratory Assoc. Post', 'ub1','s'};
-Formats(3,2).type = 'edit';
-Formats(3,2).format = 'float';
-Formats(3,2).size = 50;
-DefAns.ub1 = 10.25;
-
-Prompt(end+1,:) = {'Max Monolateral Dur', 'maxdur','s'};
-Formats(4,1).type = 'edit';
-Formats(4,1).format = 'float';
-Formats(4,1).size = 50;
-DefAns.maxdur = 10;
-
-Prompt(end+1,:) = {'Max Bilateral Dur           ', 'bmaxdur','s'};
-Formats(4,2).type = 'edit';
-Formats(4,2).format = 'float';
-Formats(4,2).size = 50;
-DefAns.bmaxdur = 15;
-
-Prompt(end+1,:) = {'Intervening LM Breakpoint' 'inlm',[]};
-Formats(5,1).type = 'check';
-DefAns.inlm = true;
-
-Prompt(end+1,:) = {'Max Comb. Movements', 'maxcomb',[]};
-Formats(6,1).type = 'edit';
-Formats(6,1).format = 'integer';
-Formats(6,1).size = 50; % automatically assign the height
-DefAns.maxcomb = 4;
-
-Prompt(end+1,:) = {'Min num IMI for PLM run', 'minNumIMI',[]};
-Formats(6,2).type = 'edit';
-Formats(6,2).format = 'integer';
-Formats(6,2).size = 50; % automatically assign the height
-DefAns.minNumIMI = 3;
-
-Prompt(end+1,:) = {'Min IMI for PLM             ', 'minIMI','s'};
-Formats(7,1).type = 'edit';
-Formats(7,1).format = 'float';
-Formats(7,1).size = 50; % automatically assign the height
-DefAns.minIMI = 10;
-
-Prompt(end+1,:) = {'Max IMI for PLM             ', 'maxIMI','s'};
-Formats(7,2).type = 'edit';
-Formats(7,2).format = 'float';
-Formats(7,2).size = 50; % automatically assign the height
-DefAns.maxIMI = 90;
-
-[in,cancel] = inputsdlg(Prompt,Title,Formats,DefAns,Options);
-in.fs = 500; % this is abitrary since our event files have time
+    
+    Title = 'MATPLM Parameters';
+    
+    %%%% SETTING DIALOG OPTIONS
+    Options.Resize = 'on';
+    Options.Interpreter = 'tex';
+    Options.CancelButton = 'on';
+    Options.ButtonNames = {'Continue','Cancel'}; %<- default names, included here just for illustration
+    Option.Dim = 4; % Horizontal dimension in fields
+    
+    Prompt = {};
+    Formats = {};
+    DefAns = struct([]);
+    
+    Prompt(1,:) = {'Arousal Events' 'ars',[]};
+    Formats(1,1).type = 'check';
+    DefAns(1).ars = true;
+    
+    Prompt(end+1,:) = {'Respiratory Events' 'aps',[]};
+    Formats(1,2).type = 'check';
+    DefAns.aps = true;
+    
+    Prompt(end+1,:) = {'Arousal Assoc. Pre   ', 'lb2','s'};
+    Formats(2,1).type = 'edit';
+    Formats(2,1).format = 'float';
+    Formats(2,1).size = 50;
+    DefAns.lb2 = 0.5;
+    
+    Prompt(end+1,:) = {'Respiratory Assoc. Pre  ', 'lb1','s'};
+    Formats(2,2).type = 'edit';
+    Formats(2,2).format = 'float';
+    Formats(2,2).size = 50;
+    DefAns.lb1 = 2;
+    
+    Prompt(end+1,:) = {'Arousal Assoc. Post ', 'ub2','s'};
+    Formats(3,1).type = 'edit';
+    Formats(3,1).format = 'float';
+    Formats(3,1).size = 50;
+    DefAns.ub2 = 0.5;
+    
+    Prompt(end+1,:) = {'Respiratory Assoc. Post', 'ub1','s'};
+    Formats(3,2).type = 'edit';
+    Formats(3,2).format = 'float';
+    Formats(3,2).size = 50;
+    DefAns.ub1 = 10.25;
+    
+    Prompt(end+1,:) = {'Max Monolateral Dur', 'maxdur','s'};
+    Formats(4,1).type = 'edit';
+    Formats(4,1).format = 'float';
+    Formats(4,1).size = 50;
+    DefAns.maxdur = 10;
+    
+    Prompt(end+1,:) = {'Max Bilateral Dur           ', 'bmaxdur','s'};
+    Formats(4,2).type = 'edit';
+    Formats(4,2).format = 'float';
+    Formats(4,2).size = 50;
+    DefAns.bmaxdur = 15;
+    
+    Prompt(end+1,:) = {'Intervening LM Breakpoint' 'inlm',[]};
+    Formats(5,1).type = 'check';
+    DefAns.inlm = true;
+    
+    Prompt(end+1,:) = {'Max Comb. Movements', 'maxcomb',[]};
+    Formats(6,1).type = 'edit';
+    Formats(6,1).format = 'integer';
+    Formats(6,1).size = 50; % automatically assign the height
+    DefAns.maxcomb = 4;
+    
+    Prompt(end+1,:) = {'Min num IMI for PLM run', 'minNumIMI',[]};
+    Formats(6,2).type = 'edit';
+    Formats(6,2).format = 'integer';
+    Formats(6,2).size = 50; % automatically assign the height
+    DefAns.minNumIMI = 3;
+    
+    Prompt(end+1,:) = {'Min IMI for PLM             ', 'minIMI','s'};
+    Formats(7,1).type = 'edit';
+    Formats(7,1).format = 'float';
+    Formats(7,1).size = 50; % automatically assign the height
+    DefAns.minIMI = 10;
+    
+    Prompt(end+1,:) = {'Max IMI for PLM             ', 'maxIMI','s'};
+    Formats(7,2).type = 'edit';
+    Formats(7,2).format = 'float';
+    Formats(7,2).size = 50; % automatically assign the height
+    DefAns.maxIMI = 90;
+    
+    [in,cancel] = inputsdlg(Prompt,Title,Formats,DefAns,Options);
+    in.fs = 500; % this is abitrary since our event files have time
 end
 
 end
