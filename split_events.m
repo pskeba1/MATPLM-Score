@@ -8,14 +8,52 @@ function output = split_events(events_file)
 % TODO: consider making use of 'position' channel - no need at the moment,
 % but perhaps it would be of clinical significance
 % TODO: multilanguage support for left/right emg
+% TODO: allow user to specify output path.
 
-event_types = readtable('event_types.csv');
-
-x = inputdlg({'LM','Arousal Events','Apnea Events'},...
-              'Enter Event Names:', [1 50; 1 50; 1 50]); 
-
+[events_files,event_paths] = uigetfile('.txt','Select input event files:',...
+    'sample_events/BC1-Events.txt','MultiSelect','on');
 
 
+load('history/last_used_defaults.mat','last_used');
+%%% begin sleep stage prompt
+prompt = {'REM','WAKE','N1','N2','N3','N4'};
+name = 'Sleep stage event names:';
+sleep_stage_names = inputdlg(prompt,name,[1, length(name)+20],...
+    last_used.sleep_defaults);
+
+%%% begin apnea/arousl event prompts
+prompt = {'Apnea','Arousal'};
+name = 'Names of Arousal and Apnea Events Scored:';
+apar_event_names = inputdlg(prompt,name,[10, length(name)+20],...
+    {last_used.apnea_defaults,last_used.arousal_defaults});
+
+%%% begin plm event desriptors
+prompt = {'LMA','Left Leg Location','Right Leg Location'};
+name = 'LM event descriptions:';
+plm_event_names = inputdlg(prompt,name,[2, length(name)+20],...
+    {last_used.lma_defaults,last_used.left_loc,last_used.right_loc});
+
+%%% save the defaults specified this time so we don't have to reenter
+last_used = struct();
+last_used(1).apnea_defaults = apar_event_names{1,1};
+last_used(1).arousal_defaults = apar_event_names{2,1};
+last_used(1).sleep_defaults = sleep_stage_names';
+last_used.lma_defaults = plm_event_names{1,1};
+last_used.left_loc = plm_event_names{2,1};
+last_used.right_loc = plm_event_names{3,1};
+
+save('history/last_used_defaults.mat','last_used');
+clear last_used;
+%%% we may wish to wait until later to save the actual struct, but for
+%%% testing purposes it's alright here.
+
+%%% redefine our names as cell arrays for easy use later
+apnea_defaults = cellstr(apar_event_names{1,1});
+arousal_defaults = cellstr(apar_event_names{2,1});
+sleep_defaults = cellstr(sleep_stage_names');
+lma_defaults = cellstr(plm_event_names{1,1});
+left_loc = cellstr(plm_event_names{2,1});
+right_loc = cellstr(plm_event_names{3,1});
 
 params = getInput2(1);
 
@@ -51,13 +89,17 @@ while ~feof(fid)
     if indata
         dataline = strsplit(tline,'\t'); % should be tab delineated
         
-        if size(strmatch(dataline(2),event_types.Sleep_Stages),1) > 0
+        %if size(strmatch(dataline(2),event_types.Sleep_Stages),1) > 0
+        if size(strmatch(dataline(2),sleep_defaults),1) > 0
             sleep_stages = [sleep_stages; cell2table(dataline,'VariableNames',label_line)];
-        elseif size(strmatch(dataline(2),event_types.Arousal_Events),1) > 0
+        %elseif size(strmatch(dataline(2),event_types.Arousal_Events),1) > 0
+        elseif size(strmatch(dataline(2),arousal_defaults),1) > 0
             arousals = [arousals; cell2table(dataline,'VariableNames',label_line)];
-        elseif size(strmatch(dataline(2),event_types.Respiratory_Events),1) > 0
+        %elseif size(strmatch(dataline(2),event_types.Respiratory_Events),1) > 0
+        elseif size(strmatch(dataline(2),apnea_defaults),1) > 0
             apneas = [apneas; cell2table(dataline,'VariableNames',label_line)];
-        elseif size(strmatch(dataline(2),event_types.PLM_Events),1) > 0
+        %elseif size(strmatch(dataline(2),event_types.PLM_Events),1) > 0
+        elseif size(strmatch(dataline(2),lma_defaults),1) > 0
             lms = [lms; cell2table(dataline,'VariableNames',label_line)];
         end
     end
@@ -75,16 +117,18 @@ if ~params.aps, apneas = table(); end
 % very different in international versions.
 T = sleep_stages{:,2};
 ep = zeros(size(T,1),1);
-ep(~cellfun('isempty', strfind(T,'1'))) = 1;
-ep(~cellfun('isempty', strfind(T,'2'))) = 2;
-ep(~cellfun('isempty', strfind(T,'3'))) = 3;
+ep(~cellfun('isempty', strfind(T,sleep_stage_names{3}))) = 1;
+ep(~cellfun('isempty', strfind(T,sleep_stage_names{4}))) = 2;
+ep(~cellfun('isempty', strfind(T,sleep_stage_names{5}))) = 3;
 ep(~cellfun('isempty', strfind(T,'4'))) = 4;
-ep(~cellfun('isempty', strfind(T,'REM'))) = 5;
+ep(~cellfun('isempty', strfind(T,sleep_stage_names{1}))) = 5;
 
 
 % TODO: multilanguage support
-lLM_tbl = lms(find(not(cellfun('isempty', strfind(lms.Location,'Left')))),:);
-rLM_tbl = lms(find(not(cellfun('isempty', strfind(lms.Location,'Right')))),:);
+%lLM_tbl = lms(find(not(cellfun('isempty', strfind(lms.Location,'Left')))),:);
+lLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,left_loc{1})),:);
+%rLM_tbl = lms(find(not(cellfun('isempty', strfind(lms.Location,right_loc)))),:);
+rLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,right_loc{1})),:);
 
 start_time = datenum(sleep_stages{1,1},tformat);
 
@@ -135,27 +179,27 @@ function generate_report(plm_outputs, params)
 %
 % TOD0: report log IMI, allow output to file
 
-fid = fopen('testfile.txt');
+fid = fopen('tmp_testout.txt','w+');
 
 ep = plm_outputs.epochstage;
 TST = sum(ep > 0,1)/120; TWT = sum(ep == 0,1)/120; 
 
-fprintf('Total sleep time: %.2f hours\n',TST);
+fprintf(fid,'Total sleep time: %.2f hours\n',TST);
 
 PLMSi = size(plm_outputs.PLMS,1)/TST;
-fprintf('PLMS index: %.2f per hour\n',PLMSi);
+fprintf(fid,'PLMS index: %.2f per hour\n',PLMSi);
 
 PLMWi = size(setdiff(plm_outputs.PLM,plm_outputs.PLMS,'rows'),1)/TWT;
-fprintf('PLMW index: %.2f per hour\n', PLMWi);
+fprintf(fid,'PLMW index: %.2f per hour\n', PLMWi);
 
 PLMS_Ni = sum(plm_outputs.PLMS(:,6) < 5)/(sum(ep > 0 & ep < 5)/120);
-fprintf('PLMS-N index: %.2f per hour\n',PLMS_Ni);
+fprintf(fid,'PLMS-N index: %.2f per hour\n',PLMS_Ni);
 
 PLMS_Ri = sum(plm_outputs.PLMS(:,6) == 5)/(sum(ep == 5)/120);
-fprintf('PLMS-R index: %.2f per hour\n',PLMS_Ri);
+fprintf(fid,'PLMS-R index: %.2f per hour\n',PLMS_Ri);
 
 PLMS_ai = sum(plm_outputs.PLMS(:,12) > 0)/TST;
-fprintf('PLMS-arousal index: %.2f per hour\n',PLMS_ai);
+fprintf(fid,'PLMS-arousal index: %.2f per hour\n',PLMS_ai);
 
 % Here we display PLMS/hr excluding CLM associated with apnea events. This
 % requires a reevaluation of periodicity, but I am unsure whether
@@ -166,73 +210,75 @@ fprintf('PLMS-arousal index: %.2f per hour\n',PLMS_ai);
 % The next 3 displays are indices for CLM associated with apnea events
 % (suppose I should say respiratory, since they're abbreviated rCLM)
 rCLMSi = sum(plm_outputs.CLMS(:,11) > 0)/TST;
-fprintf('rCLMS index: %.2f per hour\n',rCLMSi);
+fprintf(fid,'rCLMS index: %.2f per hour\n',rCLMSi);
 
 rCLMS_Ni = sum(plm_outputs.CLMS(:,11) > 0 & plm_outputs.CLMS(:,6) < 5)/...
     (sum(ep > 0 & ep < 5)/120);
-fprintf('rCLMS-N index: %.2f per hour\n',rCLMS_Ni);
+fprintf(fid,'rCLMS-N index: %.2f per hour\n',rCLMS_Ni);
 
 rCLMS_Ri = sum(plm_outputs.CLMS(:,11) > 0 & plm_outputs.CLMS(:,6) == 5)/...
     (sum(ep == 5)/120);
-fprintf('rCLMS-R index: %.2f per hour\n',rCLMS_Ri);
+fprintf(fid,'rCLMS-R index: %.2f per hour\n',rCLMS_Ri);
 
 % The next 2 displays are indices for CLM with IMI less than the min IMI
 short_CLMSi = sum(plm_outputs.CLMS(:,4) < params.minIMI)/TST;
-fprintf('short IMI CLMS index: %.2f per hour\n',short_CLMSi);
+fprintf(fid,'short IMI CLMS index: %.2f per hour\n',short_CLMSi);
 
 short_CLMWi = sum(plm_outputs.CLM(:,4) < params.minIMI & ...
     plm_outputs.CLM(:,6) == 0)/TWT;
-fprintf('short IMI CLMW index: %.2f per hour\n',short_CLMWi);
+fprintf(fid,'short IMI CLMW index: %.2f per hour\n',short_CLMWi);
 
 % Next 2 dipslays are are nonperiodic CLM
 np_CLMSi = sum(plm_outputs.CLMS(:,5) == 0)/TST;
-fprintf('nonperiodic CLMS index: %.2f per hour\n',np_CLMSi);
+fprintf(fid,'nonperiodic CLMS index: %.2f per hour\n',np_CLMSi);
 
 np_CLMWi = sum(plm_outputs.CLM(:,5) == 0 & plm_outputs.CLM(:,6) == 0)/TWT;
-fprintf('nonperiodic CLMW index: %.2f per hour\n',np_CLMWi);
+fprintf(fid,'nonperiodic CLMW index: %.2f per hour\n',np_CLMWi);
 
 % Next 4 are some duration stuff
 PLMS_dur = mean(plm_outputs.PLMS(:,3));
-fprintf('mean PLMS duration: %.2f s\n',PLMS_dur);
+fprintf(fid,'mean PLMS duration: %.2f s\n',PLMS_dur);
 
 PLMS_Ndur = mean(plm_outputs.PLMS(plm_outputs.PLMS(:,6) < 5,3));
-fprintf('mean PLMS-N duration: %.2f s\n',PLMS_Ndur);
+fprintf(fid,'mean PLMS-N duration: %.2f s\n',PLMS_Ndur);
 
 PLMS_Rdur = mean(plm_outputs.PLMS(plm_outputs.PLMS(:,6) == 5,3));
-fprintf('mean PLMS-R duration: %.2f s\n',PLMS_Rdur);
+fprintf(fid,'mean PLMS-R duration: %.2f s\n',PLMS_Rdur);
 
 PLMW_dur = mean(plm_outputs.PLM(plm_outputs.PLM(:,6) == 0,3));
-fprintf('mean PLMW-N duration: %.2f s\n',PLMW_dur);
+fprintf(fid,'mean PLMW-N duration: %.2f s\n',PLMW_dur);
 
 % Next 4 are some IMI stuff
 PLMS_imi = mean(plm_outputs.PLMS(plm_outputs.PLMS(:,9) == 0,4));
-fprintf('mean PLMS IMI: %.2f s\n',PLMS_imi);
+fprintf(fid,'mean PLMS IMI: %.2f s\n',PLMS_imi);
 
 PLMS_Nimi = mean(plm_outputs.PLMS(plm_outputs.PLMS(plm_outputs.PLMS(:,9) == 0,6) < 5,4));
-fprintf('mean PLMS-N IMI: %.2f s\n',PLMS_Nimi);
+fprintf(fid,'mean PLMS-N IMI: %.2f s\n',PLMS_Nimi);
 
 PLMS_Rimi = mean(plm_outputs.PLMS(plm_outputs.PLMS(plm_outputs.PLMS(:,9) == 0,6) == 5,4));
-fprintf('mean PLMS-R IMI: %.2f s\n',PLMS_Rimi);
+fprintf(fid,'mean PLMS-R IMI: %.2f s\n',PLMS_Rimi);
 
 PLMW_imi = mean(plm_outputs.PLM(plm_outputs.PLM(plm_outputs.PLMS(:,9) == 0,6) == 0,4));
-fprintf('mean PLMW-N IMI: %.2f s\n',PLMW_imi);
+fprintf(fid,'mean PLMW-N IMI: %.2f s\n',PLMW_imi);
 
 % The next 2 displays are duration for CLM with IMI less than the min IMI
 short_CLMSdur = mean(plm_outputs.CLMS(plm_outputs.CLMS(:,4) < params.minIMI,3));
-fprintf('short IMI CLMS duratoin: %.2f s\n',short_CLMSdur);
+fprintf(fid,'short IMI CLMS duratoin: %.2f s\n',short_CLMSdur);
 
 short_CLMWdur = mean(plm_outputs.CLM(plm_outputs.CLM(:,4) < params.minIMI & ...
     plm_outputs.CLM(:,6) == 0,3));
-fprintf('short IMI CLMW duration: %.2f s\n',short_CLMWdur);
+fprintf(fid,'short IMI CLMW duration: %.2f s\n',short_CLMWdur);
 
 right_mPLMSi = sum(plm_outputs.PLMS(:,13) == 1)/TST;
-fprintf('right monolateral PLMS index: %.2f per hour\n',right_mPLMSi);
+fprintf(fid,'right monolateral PLMS index: %.2f per hour\n',right_mPLMSi);
 
 left_mPLMSi = sum(plm_outputs.PLMS(:,13) == 2)/TST;
-fprintf('left monolateral PLMS index: %.2f per hour\n',left_mPLMSi);
+fprintf(fid,'left monolateral PLMS index: %.2f per hour\n',left_mPLMSi);
 
 bPLMSi = sum(plm_outputs.PLMS(:,13) == 3)/TST;
-fprintf('bilateral PLMS index: %.2f per hour\n',bPLMSi);
+fprintf(fid,'bilateral PLMS index: %.2f per hour\n',bPLMSi);
+
+fclose(fid);
 end
 
 function [in,cancel] = getInput2(ask)
