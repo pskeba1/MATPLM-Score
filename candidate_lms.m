@@ -52,9 +52,9 @@ elseif ~isempty(rLM)
     CLM(:,11:13) = 0; % we need these columns anyway
 else
     CLM = [];
-    return
 end
 
+if sum(CLM) == 0, return; end
 % if a bilateral movement consists of one or more monolateral movements
 % that are longer than 10 seconds (standard), the entire combined movement
 % is rejected, and a breakpoint is placed on the next movement. When

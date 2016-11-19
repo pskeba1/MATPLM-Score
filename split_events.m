@@ -1,45 +1,53 @@
 function split_events()
-%% output = split_events(events_file)
-% This functions takes as input a Remlogic file with all the events that
-% one would wish to score. Event types should be specified before running
-% the script in the file 'event_types.csv'. At this point, Remlogic event
-% file should have four columns: type, event, duration, location.
-%
-% TODO: consider making use of 'position' channel - no need at the moment,
-% but perhaps it would be of clinical significance
-% TODO: multilanguage support for left/right emg
-% TODO: allow user to specify output path.
 
 [events_files,event_paths] = uigetfile('.txt','Select input event files:',...
     'sample_events/BC1-Events.txt','MultiSelect','on');
 
+if ~iscellstr(events_files), events_files = {events_files}; end
+
 load('history/last_used_defaults.mat','last_used');
+
+
+%%% begin event file column prompt
+% prompt = {'Time','Event','Duration','Location','Position','SleepStage'};
+% name = 'Specify column numbers (0 is not included)';
+% col_defaults = inputdlg(prompt,name,[1, length(name)+20],...
+%     last_used.col_defaults);
+% 
+% if isempty(col_defaults), return; end
+
 %%% begin sleep stage prompt
 prompt = {'REM','WAKE','N1','N2','N3','N4'};
 name = 'Sleep stage event names:';
-sleep_stage_names = inputdlg(prompt,name,[1, length(name)+20],...
+sleep_defaults = inputdlg(prompt,name,[1, length(name)+20],...
     last_used.sleep_defaults);
+
+if isempty(sleep_defaults), return; end
 
 %%% begin apnea/arousl event prompts
 prompt = {'Apnea','Arousal'};
 name = 'Names of Arousal and Apnea Events Scored:';
-apar_event_names = inputdlg(prompt,name,[10, length(name)+20],...
+apnea_defaults = inputdlg(prompt,name,[10, length(name)+20],...
     {last_used.apnea_defaults,last_used.arousal_defaults});
+
+if isempty(apnea_defaults), return; end
 
 %%% begin plm event desriptors
 prompt = {'LMA','Left Leg Location','Right Leg Location'};
 name = 'LM event descriptions:';
-plm_event_names = inputdlg(prompt,name,[2, length(name)+20],...
+lma_defaults = inputdlg(prompt,name,[2, length(name)+20],...
     {last_used.lma_defaults,last_used.left_loc,last_used.right_loc});
+
+if isempty(lma_defaults), return; end
 
 %%% save the defaults specified this time so we don't have to reenter
 last_used = struct();
-last_used(1).apnea_defaults = apar_event_names{1,1};
-last_used(1).arousal_defaults = apar_event_names{2,1};
-last_used(1).sleep_defaults = sleep_stage_names';
-last_used.lma_defaults = plm_event_names{1,1};
-last_used.left_loc = plm_event_names{2,1};
-last_used.right_loc = plm_event_names{3,1};
+last_used(1).apnea_defaults = apnea_defaults{1,1};
+last_used(1).arousal_defaults = apnea_defaults{2,1};
+last_used(1).sleep_defaults = sleep_defaults';
+last_used.lma_defaults = lma_defaults{1,1};
+last_used.left_loc = lma_defaults{2,1};
+last_used.right_loc = lma_defaults{3,1};
 
 save('history/last_used_defaults.mat','last_used');
 clear last_used;
@@ -47,20 +55,20 @@ clear last_used;
 %%% testing purposes it's alright here.
 
 %%% redefine our names as cell arrays for easy use later
-apnea_defaults = cellstr(apar_event_names{1,1});
-arousal_defaults = cellstr(apar_event_names{2,1});
-sleep_defaults = cellstr(sleep_stage_names');
-lma_defaults = cellstr(plm_event_names{1,1});
-left_loc = cellstr(plm_event_names{2,1});
-right_loc = cellstr(plm_event_names{3,1});
+apnea_defaults = cellstr(apnea_defaults{1,1});
+arousal_defaults = cellstr(apnea_defaults{2,1});
+sleep_defaults = cellstr(sleep_defaults');
+lm_ids = cellstr(lma_defaults{1,1});
+left_loc = cellstr(lma_defaults{2,1});
+right_loc = cellstr(lma_defaults{3,1});
 
-params = getInput2(1);
-
+[params,cancel] = getInput2(1);
+if cancel, return; end
 
 for each_file = 1:length(events_files)
     
-    outfile_path = [events_files{each_file}(1:end-4), '.report'];
-    outfile_path = [event_paths, outfile_path];
+    outfile_file = [events_files{each_file}(1:end-4), '.report'];
+    outfile_path = [event_paths, outfile_file];
     
     fid = fopen([event_paths, events_files{each_file}]);
     
@@ -104,7 +112,7 @@ for each_file = 1:length(events_files)
             elseif size(strmatch(dataline(2),apnea_defaults),1) > 0
                 apneas = [apneas; cell2table(dataline,'VariableNames',label_line)];
                 %elseif size(strmatch(dataline(2),event_types.PLM_Events),1) > 0
-            elseif size(strmatch(dataline(2),lma_defaults),1) > 0
+            elseif size(strmatch(dataline(2),lm_ids),1) > 0
                 lms = [lms; cell2table(dataline,'VariableNames',label_line)];
             end
         end
@@ -122,15 +130,28 @@ for each_file = 1:length(events_files)
     % very different in international versions.
     T = sleep_stages{:,2};
     ep = zeros(size(T,1),1);
-    ep(~cellfun('isempty', strfind(T,sleep_stage_names{3}))) = 1;
-    ep(~cellfun('isempty', strfind(T,sleep_stage_names{4}))) = 2;
-    ep(~cellfun('isempty', strfind(T,sleep_stage_names{5}))) = 3;
+    ep(~cellfun('isempty', strfind(T,sleep_defaults{3}))) = 1;
+    ep(~cellfun('isempty', strfind(T,sleep_defaults{4}))) = 2;
+    ep(~cellfun('isempty', strfind(T,sleep_defaults{5}))) = 3;
     ep(~cellfun('isempty', strfind(T,'4'))) = 4;
-    ep(~cellfun('isempty', strfind(T,sleep_stage_names{1}))) = 5;
+    ep(~cellfun('isempty', strfind(T,sleep_defaults{1}))) = 5;
     
     % Select left and right LMs
-    lLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,left_loc{1})),:);
-    rLM_tbl = lms(~cellfun('isempty', strfind(lms.Location,right_loc{1})),:);
+    lLM_tbl = cell2table(cell(0,4),'VariableNames',label_line);
+    rLM_tbl = cell2table(cell(0,4),'VariableNames',label_line);
+    if ~isempty(lms)
+        for which_name = 1:length(left_loc)
+            lLM_tbl = [lLM_tbl ; lms(~cellfun('isempty',...
+                strfind(lms.Location,left_loc{which_name})),:)];
+        end
+        for which_name = 1:length(right_loc)
+            rLM_tbl = [rLM_tbl ; lms(~cellfun('isempty',... 
+                strfind(lms.Location,right_loc{which_name})),:)];
+        end
+    else
+        lLM_tbl = [];
+        rLM_tbl = [];
+    end
     
     start_time = datenum(sleep_stages{1,1},tformat);
     
@@ -159,6 +180,10 @@ for each_file = 1:length(events_files)
     
     % chop off location column for apnea/arousal
     CLM = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
+    if sum(CLM) == 0 
+        msgbox(sprintf('No candidate LMS for file %s',outfile_file),'Warning');
+        continue;        
+    end
     x = periodic_lms(CLM,params);
     
     plm_results = struct();
