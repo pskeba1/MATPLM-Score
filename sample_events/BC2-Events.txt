@@ -1,5 +1,4 @@
 RemLogic Event Export
-Patient:	Bernadette Clark
 Patient ID:	SOAP-1001-PSG2
 Recording Date:	7/9/2008
 

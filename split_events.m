@@ -1,4 +1,4 @@
-function split_events()
+function output = split_events()
 
 [events_files,event_paths] = uigetfile('.txt','Select input event files:',...
     'sample_events/BC1-Events.txt','MultiSelect','on');
@@ -9,12 +9,8 @@ load('history/last_used_defaults.mat','last_used');
 
 
 %%% begin event file column prompt
-% prompt = {'Time','Event','Duration','Location','Position','SleepStage'};
-% name = 'Specify column numbers (0 is not included)';
-% col_defaults = inputdlg(prompt,name,[1, length(name)+20],...
-%     last_used.col_defaults);
-% 
-% if isempty(col_defaults), return; end
+[col_defaults,cancel] = colinput(last_used.col_defaults);
+if cancel, return; end
 
 %%% begin sleep stage prompt
 prompt = {'REM','WAKE','N1','N2','N3','N4'};
@@ -48,6 +44,7 @@ last_used(1).sleep_defaults = sleep_defaults';
 last_used.lma_defaults = lma_defaults{1,1};
 last_used.left_loc = lma_defaults{2,1};
 last_used.right_loc = lma_defaults{3,1};
+last_used.col_defaults = col_defaults;
 
 save('history/last_used_defaults.mat','last_used');
 clear last_used;
@@ -103,16 +100,13 @@ for each_file = 1:length(events_files)
             dataline = strsplit(tline,'\t'); % should be tab delineated
             
             %if size(strmatch(dataline(2),event_types.Sleep_Stages),1) > 0
-            if size(strmatch(dataline(2),sleep_defaults),1) > 0
+            if size(strmatch(dataline(col_defaults.event),sleep_defaults),1) > 0
                 sleep_stages = [sleep_stages; cell2table(dataline,'VariableNames',label_line)];
-                %elseif size(strmatch(dataline(2),event_types.Arousal_Events),1) > 0
-            elseif size(strmatch(dataline(2),arousal_defaults),1) > 0
+            elseif size(strmatch(dataline(col_defaults.event),arousal_defaults),1) > 0
                 arousals = [arousals; cell2table(dataline,'VariableNames',label_line)];
-                %elseif size(strmatch(dataline(2),event_types.Respiratory_Events),1) > 0
-            elseif size(strmatch(dataline(2),apnea_defaults),1) > 0
+            elseif size(strmatch(dataline(col_defaults.event),apnea_defaults),1) > 0
                 apneas = [apneas; cell2table(dataline,'VariableNames',label_line)];
-                %elseif size(strmatch(dataline(2),event_types.PLM_Events),1) > 0
-            elseif size(strmatch(dataline(2),lm_ids),1) > 0
+            elseif size(strmatch(dataline(col_defaults.event),lm_ids),1) > 0
                 lms = [lms; cell2table(dataline,'VariableNames',label_line)];
             end
         end
@@ -128,7 +122,7 @@ for each_file = 1:length(events_files)
     % epochs for sleep staging. Also, hopefully all the events will contain a
     % number or REM to indicate stage. This could be tough if the format is
     % very different in international versions.
-    T = sleep_stages{:,2};
+    T = sleep_stages{:,col_defaults.event};
     ep = zeros(size(T,1),1);
     ep(~cellfun('isempty', strfind(T,sleep_defaults{3}))) = 1;
     ep(~cellfun('isempty', strfind(T,sleep_defaults{4}))) = 2;
@@ -142,42 +136,41 @@ for each_file = 1:length(events_files)
     if ~isempty(lms)
         for which_name = 1:length(left_loc)
             lLM_tbl = [lLM_tbl ; lms(~cellfun('isempty',...
-                strfind(lms.Location,left_loc{which_name})),:)];
+                strfind(lms{:,col_defaults.loc},left_loc{which_name})),:)];
         end
         for which_name = 1:length(right_loc)
             rLM_tbl = [rLM_tbl ; lms(~cellfun('isempty',... 
-                strfind(lms.Location,right_loc{which_name})),:)];
+                strfind(lms{:,col_defaults.loc},right_loc{which_name})),:)];
         end
     else
         lLM_tbl = [];
         rLM_tbl = [];
     end
     
-    start_time = datenum(sleep_stages{1,1},tformat);
+    start_time = datenum(sleep_stages{1,col_defaults.time},tformat);
     
     % Remember, we're going to just assume 500 hz becuase it's purely arbitrary
     % past the detection step.
     if ~isempty(lLM_tbl)
-        lLM = round((datenum(lLM_tbl{:,1},tformat)-start_time) * 86500 * 500);
+        lLM = round((datenum(lLM_tbl{:,col_defaults.time},tformat)-start_time) * 86500 * 500);
         
-        lLM(:,2) = lLM(:,1) + 500 * cellfun(@str2double, lLM_tbl{:,3});
+        lLM(:,2) = lLM(:,1) + 500 * cellfun(@str2double, lLM_tbl{:,col_defaults.dur});
     else
         lLM = [];
     end
     
     if ~isempty(rLM_tbl)
-        rLM = round((datenum(rLM_tbl{:,1},tformat)-start_time) * 86500 * 500);
-        rLM(:,2) = rLM(:,1) + 500 * cellfun(@str2double, rLM_tbl{:,3});
+        rLM = round((datenum(rLM_tbl{:,col_defaults.time},tformat)-start_time) * 86500 * 500);
+        rLM(:,2) = rLM(:,1) + 500 * cellfun(@str2double, rLM_tbl{:,col_defaults.dur});
     else
         rLM = [];
     end
     
     arcell = {}; apcell = {};
-    if ~isempty(arousals), arcell = table2cell(arousals(:,1:3)); end
-    if ~isempty(apneas), apcell = table2cell(apneas(:,1:3)); end
-    
-    
-    
+    colsneeded = [col_defaults.time col_defaults.event col_defaults.dur];
+    if ~isempty(arousals), arcell = table2cell(arousals(:,colsneeded)); end
+    if ~isempty(apneas), apcell = table2cell(apneas(:,colsneeded)); end
+           
     % chop off location column for apnea/arousal
     CLM = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
     if sum(CLM) == 0 
@@ -195,8 +188,8 @@ for each_file = 1:length(events_files)
     
     generate_report(plm_results, params, outfile_path);
     
-    % output = struct('sleepstages',sleep_stages,'arousals',arousals,...
-    %    'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
+    output = struct('sleepstages',sleep_stages,'arousals',arousals,...
+       'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
     
 end
 end
@@ -409,4 +402,50 @@ else
     in.fs = 500; % this is abitrary since our event files have time
 end
 
+end
+
+function [in,cancel] = colinput(col_defaults)
+
+Title = 'Enter Column No. of Each Variable:';
+
+%%%% SETTING DIALOG OPTIONS
+Options.Resize = 'on';
+Options.Interpreter = 'tex';
+Options.CancelButton = 'on';
+Options.ButtonNames = {'Continue','Cancel'};
+%Option.Dim = 4;
+
+Prompt = {};
+Formats = {};
+DefAns = struct([]);
+
+Prompt(1,:) = {'Time','time',[]};
+Formats(1,1).type = 'list';
+Formats(1,1).style = 'radiobutton';
+Formats(1,1).format = 'integer';
+Formats(1,1).items = [1; 2; 3; 4; 5; 6];
+DefAns(1).time = col_defaults.time;
+
+Prompt(end+1,:) = {'Event' 'event',[]};
+Formats(1,2).type = 'list';
+Formats(1,2).style = 'radiobutton';
+Formats(1,2).format = 'integer';
+Formats(1,2).items = [1; 2; 3; 4; 5; 6];
+DefAns.event = col_defaults.event;
+ 
+Prompt(end+1,:) = {'Duration' 'dur',[]};
+Formats(1,3).type = 'list';
+Formats(1,3).style = 'radiobutton';
+Formats(1,3).format = 'integer';
+Formats(1,3).items = [1; 2; 3; 4; 5; 6];
+DefAns.dur = col_defaults.dur;
+
+Prompt(end+1,:) = {'Location' 'loc',[]};
+Formats(1,4).type = 'list';
+Formats(1,4).style = 'radiobutton';
+Formats(1,4).format = 'integer';
+Formats(1,4).items = [1; 2; 3; 4; 5; 6];
+DefAns.loc = col_defaults.loc;
+
+[in,cancel] = inputsdlg(Prompt,Title,Formats,DefAns,Options);
 end

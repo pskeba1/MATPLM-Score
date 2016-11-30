@@ -1,5 +1,4 @@
 RemLogic Event Export
-Patient:	Bernadette Clark
 Patient ID:	1001
 Recording Date:	7/8/2008
 
