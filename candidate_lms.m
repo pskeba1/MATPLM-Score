@@ -1,4 +1,4 @@
-function CLM = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
+function [CLM,CLMap] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
 %% CLM = candidate_lms_rev1(rLM,lLM,epochStage,params, varargin)
 % Determine candidate leg movements for PLM from monolateral LM arrays. If
 % either rLM or lLM is empty ([]), this will return monolateral candidates,
@@ -112,6 +112,8 @@ if ~isempty(CLM)
     % currently well defined in the literature for combined legs, and we
     % have omitted it temporarily
     CLM(:,10:12) = 0;
+    
+    CLMap = [];
         
     % Add apnea events (col 11) and arousal events (col 12)
     if exist('apd','var') && exist('hgs','var')
