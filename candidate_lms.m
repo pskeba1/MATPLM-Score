@@ -144,7 +144,7 @@ end
 
 end
 
-function newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,lb,ub,fs,tformat)
+function newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,ub,lb,fs,tformat)
 %% newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,lb,ub,fs)
 % PLMApnea adds Apnea Events to the 11th col of the PLM Matrix if there is
 % a PLM within -lb,+ub seconds of the event endpoint

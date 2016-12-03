@@ -199,7 +199,7 @@ for each_file = 1:length(events_files)
     plm_results.CLMS = CLMnr(CLMnr(:,6) > 0,:);    
     plm_results.epochstage = ep;
     
-    generate_report(plm_results, params, outfile_path);
+    generate_report(plm_results,arousals,apneas);
     
     output = struct('sleepstages',sleep_stages,'arousals',arousals,...
        'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
