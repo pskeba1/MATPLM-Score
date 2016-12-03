@@ -38,8 +38,6 @@ fprintf(fid,'PLMS-arousal index: %.2f per hour\n',PLMS_ai);
 rCLMSi = sum(plm_outputs.CLMS(:,11) > 0)/TST;
 fprintf(fid,'rCLMS index: %.2f per hour\n',rCLMSi);
 
-rCLMS_Ni = sum(plm_outputs.CLMap);
-fprintf(fid,'rCLMS-N index: %.2f per hour\n',rCLMS_Ni);
 
 rCLMS_Ri = sum(plm_outputs.CLMS(:,11) > 0 & plm_outputs.CLMS(:,6) == 5)/...
     (sum(ep == 5)/120);

@@ -1,4 +1,4 @@
-function [CLM,CLMap] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
+function [CLM] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
 %% CLM = candidate_lms_rev1(rLM,lLM,epochStage,params, varargin)
 % Determine candidate leg movements for PLM from monolateral LM arrays. If
 % either rLM or lLM is empty ([]), this will return monolateral candidates,
@@ -23,9 +23,9 @@ function [CLM,CLMap] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
 %   - hgs - hypnogram start time
 
 
-if nargin >= 5, apd = varargin{1}; end
-if nargin >= 6, ard = varargin{2}; end
-if nargin == 7, hgs = varargin{3}; end
+if nargin >= 6, apd = varargin{1}; end
+if nargin >= 7, ard = varargin{2}; end
+if nargin == 8, hgs = varargin{3}; end
 
 if ~isempty(rLM) && ~isempty(lLM)
     % Reduce left and right LM arrays to exclude too long movements, but add
@@ -33,19 +33,24 @@ if ~isempty(rLM) && ~isempty(lLM)
     rLM(:,3) = (rLM(:,2) - rLM(:,1))/params.fs;
     lLM(:,3) = (lLM(:,2) - lLM(:,1))/params.fs;
     
+    rLM = rLM(rLM(:,3) >= 0.5,:);
+    lLM = lLM(lLM(:,3) >= 0.5,:);
+    
     rLM(rLM(1:end-1,3) > params.maxdur, 9) = 4; % too long mclm
     lLM(lLM(1:end-1,3) > params.maxdur, 9) = 4; % too long mclm
     
     % Combine left and right and sort.
     CLM = rOV2(lLM,rLM,params.fs);
 elseif ~isempty(lLM)
-    lLM(:,3) = (lLM(:,2) - lLM(:,1))/params.fs;    
+    lLM(:,3) = (lLM(:,2) - lLM(:,1))/params.fs;
+    lLM = lLM(lLM(:,3) >= 0.5,:);
     lLM(lLM(1:end-1,3) > params.maxdur, 9) = 4; % too long mclm
     
     CLM = lLM;
     CLM(:,11:13) = 0; % we need these columns anyway
 elseif ~isempty(rLM)
-    rLM(:,3) = (rLM(:,2) - rLM(:,1))/params.fs;    
+    rLM(:,3) = (rLM(:,2) - rLM(:,1))/params.fs;
+    rLM = rLM(rLM(:,3) >= 0.5,:);
     rLM(rLM(1:end-1,3) > params.maxdur, 9) = 4; % too long mclm
     
     CLM = rLM;
@@ -127,10 +132,7 @@ if ~isempty(CLM)
         % that applied to the removed movement. i.e., if a too-long IMI
         % movement is associated with apnea event, make sure that the next
         % movement is broken so that the run cannot continue erroneously.
-        CLMap = CLM(CLM(:,11) > 0, :); % just in case we want this later
-        CLM(find(CLM(1:end-1,11) > 0)+1,9) = ...
-            CLM(CLM(1:end-1,11) > 0,9);
-        CLM = CLM(CLM(:,11) == 0, :);
+        CLM(CLM(1:end-1,11) > 0,9) = 11; % MARK RESPIRATORY EVENT WITH 11        
     end
     if exist('ard','var') && exist('hgs','var')
         %CLM = PLMArousal(CLM,ard,hgs,params.lb2,params.ub2,params.fs);

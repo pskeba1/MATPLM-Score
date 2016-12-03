@@ -173,19 +173,30 @@ for each_file = 1:length(events_files)
     if ~isempty(apneas), apcell = table2cell(apneas(:,colsneeded)); end
            
     % chop off location column for apnea/arousal
-    [CLM,CLMap] = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
-    if sum(CLM) == 0 
+    % remember: CLMr are included in these arrays, we must remove them for
+    % PLM nr
+        CLMwr = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
+    if sum(CLMwr) == 0 
         msgbox(sprintf('No candidate LMS for file %s',outfile_file),'Warning');
         continue;        
     end
-    x = periodic_lms(CLM,params);
+    
+    % get rid of apnea related events and recalulate imi
+    CLMnr = CLMwr(CLMwr(:,11) == 0,:);
+    CLMnr(2:end,4) = diff(CLMnr(:,1))/500;
+    
+    
+    % Remember to do one without apnea events
+    x = periodic_lms(CLMnr,params);
+    xr = periodic_lms(CLMwr,params);
     
     plm_results = struct();
+    plm_results.PLMr = xr;
     plm_results.PLM = x;
     plm_results.PLMS = x(x(:,6) > 0,:);
-    plm_results.CLM = CLM;
-    plm_results.CLMS = CLM(CLM(:,6) > 0,:);
-    plm_results.CLMap = CLMap;
+    plm_results.CLMr = CLMwr;
+    plm_results.CLM = CLMnr;
+    plm_results.CLMS = CLMnr(CLMnr(:,6) > 0,:);    
     plm_results.epochstage = ep;
     
     generate_report(plm_results, params, outfile_path);
