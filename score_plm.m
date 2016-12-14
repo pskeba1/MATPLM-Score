@@ -1,13 +1,14 @@
 function output = score_plm()
-%%
+% output will only contain data for the last file processed to conserve
+% memory
 
 [events_files,event_paths] = uigetfile('.txt','Select input event files:',...
     'sample_events/BC1-Events.txt','MultiSelect','on');
 
 if ~iscellstr(events_files), events_files = {events_files}; end
 
-load('history/last_used_defaults.mat','last_used');
-
+%load('history/last_used_defaults.mat','last_used');
+load('last_used_defaults.mat','last_used');
 
 %%% begin event file column prompt
 [col_defaults,cancel] = colinput(last_used.col_defaults);
@@ -47,7 +48,8 @@ last_used.left_loc = lma_defaults{2,1};
 last_used.right_loc = lma_defaults{3,1};
 last_used.col_defaults = col_defaults;
 
-save('history/last_used_defaults.mat','last_used');
+%save('history/last_used_defaults.mat','last_used');
+save('last_used_defaults.mat','last_used');
 clear last_used;
 %%% we may wish to wait until later to save the actual struct, but for
 %%% testing purposes it's alright here.
@@ -199,7 +201,8 @@ for each_file = 1:length(events_files)
     plm_results.CLMS = CLMnr(CLMnr(:,6) > 0,:);    
     plm_results.epochstage = ep;
     
-    generate_report(plm_results,arousals,apneas);
+    ID = events_files{each_file}(1:end-4);
+    generate_report(plm_results,arousals,apneas,ID);    
     
     output = struct('sleepstages',sleep_stages,'arousals',arousals,...
        'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
@@ -223,7 +226,7 @@ else
     Options.Resize = 'on';
     Options.Interpreter = 'tex';
     Options.CancelButton = 'on';
-    Options.ButtonNames = {'Continue','Cancel'}; %<- default names, included here just for illustration
+    Options.ButtonNames = {'OK','Cancel'}; %<- default names, included here just for illustration
     Option.Dim = 4; % Horizontal dimension in fields
     
     Prompt = {};
@@ -316,7 +319,7 @@ Title = 'Enter Column No. of Each Variable:';
 Options.Resize = 'on';
 Options.Interpreter = 'tex';
 Options.CancelButton = 'on';
-Options.ButtonNames = {'Continue','Cancel'};
+Options.ButtonNames = {'OK','Cancel'};
 %Option.Dim = 4;
 
 Prompt = {};

@@ -1,4 +1,4 @@
-function outtable = generate_report(plm_results,arousal,apnea)
+function outtable = generate_report(plm_results,arousal,apnea,ID)
 % TODO: allow for different sleep epoch lengths
 % TODO: need sleep stages for arousal and apnea stuff
 
@@ -57,10 +57,10 @@ col4{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) > 0,4))));
 col4{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) > 0,4))));
-col4{13+1} = size(apnea,1);
+col4{13+1} = ''; % = '';
 col4{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) > 0),1);
-col4{15+1} = size(arousal,1)/TST; % TODO  arousal in sleep stage
+col4{15+1} = ''; % = ''; % TODO  arousal in sleep stage
 
 % Indices during wake
 PLMW = plm_results.PLM(plm_results.PLM(:,6) == 0,:);
@@ -83,10 +83,10 @@ col5{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 0,4))));
 col5{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 0,4))));
-col5{13+1} = size(apnea,1);
+col5{13+1} = ''; % = size(apnea,1);
 col5{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) == 0),1);
-col5{15+1} = size(arousal,1)/TWT; % TODO  arousal in sleep stage
+col5{15+1} = ''; % = size(arousal,1)/TWT; % TODO  arousal in sleep stage
 
 % Indices during stage 1
 PLM1 = plm_results.PLM(plm_results.PLM(:,6) == 1,:);
@@ -109,12 +109,10 @@ col6{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 1,4))));
 col6{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 1,4))));
-col6{13+1} = size(apnea,1);
+col6{13+1} = ''; % = size(apnea,1);
 col6{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) == 1),1);
-col6{15+1} = size(arousal,1)/T1T; % TODO  arousal in sleep stage
-
-outtable = table(col1,col2,col3,col4,col5,col6);
+col6{15+1} = ''; % = size(arousal,1)/T1T; % TODO  arousal in sleep stage
 
 % Indices during stage 2
 PLM2 = plm_results.PLM(plm_results.PLM(:,6) == 2,:);
@@ -137,10 +135,10 @@ col7{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 2,4))));
 col7{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 2,4))));
-col7{13+1} = size(apnea,1);
+col7{13+1} = ''; % = size(apnea,1);
 col7{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) == 2),1);
-col7{15+1} = size(arousal,1)/T2T; % TODO  arousal in sleep stage
+col7{15+1} = ''; % = size(arousal,1)/T2T; % TODO  arousal in sleep stage
 
 % Indices during stage 3
 PLM3 = plm_results.PLM(plm_results.PLM(:,6) == 3,:);
@@ -163,10 +161,10 @@ col8{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 3,4))));
 col8{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 3,4))));
-col8{13+1} = size(apnea,1);
+col8{13+1} = ''; % = size(apnea,1);
 col8{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) == 3),1);
-col8{15+1} = size(arousal,1)/T3T; % TODO  arousal in sleep stage
+col8{15+1} = ''; % = size(arousal,1)/T3T; % TODO  arousal in sleep stage
 
 % Indices during REM
 PLMREM = plm_results.PLM(plm_results.PLM(:,6) == 5,:);
@@ -189,10 +187,10 @@ col9{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 5,4))));
 col9{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
     plm_results.PLMr(:,6) == 5,4))));
-col9{13+1} = size(apnea,1);
+col9{13+1} = ''; % = size(apnea,1);
 col9{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) == 5),1);
-col9{15+1} = size(arousal,1)/TREMT; % TODO  arousal in sleep stage
+col9{15+1} = ''; % = size(arousal,1)/TREMT; % TODO  arousal in sleep stage
 
 % Indices during REM
 PLMnREM = plm_results.PLM(plm_results.PLM(:,6) > 0 & ...
@@ -223,18 +221,19 @@ col10{11+1} = exp(mean(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
 col10{12+1} = exp(std(log(plm_results.PLMr(plm_results.PLMr(:,9)==0 & ...
    plm_results.PLMr(:,6) > 0 & ...
     plm_results.PLMr(:,6) < 5,4))));
-col10{13+1} = size(apnea,1);
+col10{13+1} = ''; % = size(apnea,1);
 col10{14+1} = size(plm_results.CLMr(plm_results.CLMr(:,11)>0 & ...
     plm_results.CLMr(:,6) > 0 & ...
     plm_results.CLMr(:,6) < 5),1);
-col10{15+1} = size(arousal,1)/TnREMT; % TODO  arousal in sleep stage
+col10{15+1} = ''; % = size(arousal,1)/TnREMT; % TODO  arousal in sleep stage
 
 
 colnames = {'Event','Metric','TIB','TST','Wake','N1','N2','N3','REM','NREM'};
 
 % PLM Results
-outtable = table(col1,col2,col3,col4,col5,col6,col7,col8,col9,col10,...
-    'VariableNames',colnames);
+outtable = table(col1(1:12,:),col2(1:12,:),col3(1:12,:),col4(1:12,:),...
+    col5(1:12,:),col6(1:12,:),col7(1:12,:),col8(1:12,:),col9(1:12,:),...
+    col10(1:12,:),'VariableNames',colnames);
 
 % Plotting procedure
 lin_labels = {'2s','10s','20s','30s','40s','50s','60s','70s','80s','90s'};
@@ -273,5 +272,7 @@ set(gca,'xtick',[log(2),log(10),log(20),log(40),log(60),log(90)]);
 set(gca,'xticklabel',log_labels);
 
 %% Report Generation
-
+assignin('base','outcell',table2cell(outtable));
+report('generate_report',['-o' ID]);
+close;
 end
