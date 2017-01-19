@@ -2,3 +2,5 @@ event_assoc.m
 tmp*
 *.report
 *.pdf
+score_plm/for_*
+score_plm/Packaging*
