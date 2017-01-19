@@ -4,3 +4,5 @@ tmp*
 *.pdf
 score_plm/for_*
 score_plm/Packaging*
+executable/*
+SplashScreen-v1p1/*
