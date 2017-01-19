@@ -7,64 +7,85 @@ function output = score_plm()
 
 if ~iscellstr(events_files), events_files = {events_files}; end
 
-%load('history/last_used_defaults.mat','last_used');
-load('last_used_defaults.mat','last_used');
+button = questdlg(['Please specify which scoring options you would '...
+    'like to use'],'Scoring Options','Standard','Most Recent','New','Standard');
 
-%%% begin event file column prompt
-[col_defaults,cancel] = colinput(last_used.col_defaults);
-if cancel, return; end
+switch button
+    case 'Standard'
+        load('standard_defaults.mat','last_used');
+        sleep_defaults = last_used.sleep_defaults;
+        reap_options = {last_used.apnea_defaults;...
+            last_used.arousal_defaults};
+        lma_defaults = {last_used.lma_defaults;last_used.left_loc;...
+            last_used.right_loc};
+        col_defaults = last_used.col_defaults;
+        params = last_used.params;
+    case 'Most Recent'
+        load('last_used_defaults.mat','last_used');
+        sleep_defaults = last_used.sleep_defaults;
+        reap_options = {last_used.apnea_defaults;...
+            last_used.arousal_defaults};
+        lma_defaults = {last_used.lma_defaults;last_used.left_loc;...
+            last_used.right_loc};
+        col_defaults = last_used.col_defaults;
+        params = last_used.params;
+    case 'New'
+        load('last_used_defaults.mat','last_used');
+        
+        %%% begin event file column prompt
+        [col_defaults,cancel] = colinput(last_used.col_defaults);
+        if cancel, return; end
+        
+        %%% begin sleep stage prompt
+        prompt = {'REM','WAKE','N1','N2','N3'};
+        name = 'Sleep stage event names:';
+        sleep_defaults = inputdlg(prompt,name,[1, length(name)+20],...
+            last_used.sleep_defaults);
+        
+        if isempty(sleep_defaults), return; end
+        
+        %%% begin apnea/arousl event prompts
+        prompt = {'Apnea','Arousal'};
+        name = 'Names of Arousal and Apnea Events Scored:';
+        reap_options = inputdlg(prompt,name,[10, length(name)+20],...
+            {last_used.apnea_defaults,last_used.arousal_defaults});
+        
+        if isempty(reap_options), return; end
+        
+        %%% begin plm event desriptors
+        prompt = {'LMA','Left Leg Location','Right Leg Location'};
+        name = 'LM event descriptions:';
+        lma_defaults = inputdlg(prompt,name,[2, length(name)+20],...
+            {last_used.lma_defaults,last_used.left_loc,last_used.right_loc});
+        
+        if isempty(lma_defaults), return; end
+        
+        %%% save the defaults specified this time so we don't have to reenter
+        last_used = struct();
+        last_used(1).apnea_defaults = reap_options{1,1};
+        last_used(1).arousal_defaults = reap_options{2,1};
+        last_used(1).sleep_defaults = sleep_defaults';
+        last_used.lma_defaults = lma_defaults{1,1};
+        last_used.left_loc = lma_defaults{2,1};
+        last_used.right_loc = lma_defaults{3,1};
+        last_used.col_defaults = col_defaults;
+        
+        [params,cancel] = getInput2(1);
+        last_used.params = params;
+                
+        save('last_used_defaults.mat','last_used');
+        
+        if cancel, return; end
+end
 
-%%% begin sleep stage prompt
-prompt = {'REM','WAKE','N1','N2','N3'};
-name = 'Sleep stage event names:';
-sleep_defaults = inputdlg(prompt,name,[1, length(name)+20],...
-    last_used.sleep_defaults);
+assignin('base','last_used',last_used); % save for later
 
-if isempty(sleep_defaults), return; end
-
-%%% begin apnea/arousl event prompts
-prompt = {'Apnea','Arousal'};
-name = 'Names of Arousal and Apnea Events Scored:';
-reap_options = inputdlg(prompt,name,[10, length(name)+20],...
-    {last_used.apnea_defaults,last_used.arousal_defaults});
-
-if isempty(reap_options), return; end
-
-%%% begin plm event desriptors
-prompt = {'LMA','Left Leg Location','Right Leg Location'};
-name = 'LM event descriptions:';
-lma_defaults = inputdlg(prompt,name,[2, length(name)+20],...
-    {last_used.lma_defaults,last_used.left_loc,last_used.right_loc});
-
-if isempty(lma_defaults), return; end
-
-%%% save the defaults specified this time so we don't have to reenter
-last_used = struct();
-last_used(1).apnea_defaults = reap_options{1,1};
-last_used(1).arousal_defaults = reap_options{2,1};
-last_used(1).sleep_defaults = sleep_defaults';
-last_used.lma_defaults = lma_defaults{1,1};
-last_used.left_loc = lma_defaults{2,1};
-last_used.right_loc = lma_defaults{3,1};
-last_used.col_defaults = col_defaults;
-
-%save('history/last_used_defaults.mat','last_used');
-save('last_used_defaults.mat','last_used');
-assignin('base','last_used',last_used);
-
-%%% we may wish to wait until later to save the actual struct, but for
-%%% testing purposes it's alright here.
-
-%%% redefine our names as cell arrays for easy use later
 apnea_defaults = cellstr(reap_options{1,1});
 arousal_defaults = cellstr(reap_options{2,1});
 sleep_defaults = cellstr(sleep_defaults');
 lm_ids = cellstr(lma_defaults{1,1});
 left_loc = cellstr(lma_defaults{2,1});
 right_loc = cellstr(lma_defaults{3,1});
-
-[params,cancel] = getInput2(1);
-if cancel, return; end
 
 for each_file = 1:length(events_files)
     
@@ -187,6 +208,7 @@ for each_file = 1:length(events_files)
     % get rid of apnea related events and recalulate imi
     CLMnr = CLMwr(CLMwr(:,11) == 0,:);
     CLMnr(2:end,4) = diff(CLMnr(:,1))/500;
+    CLMnr(CLMnr(:,4) > params.maxIMI,9) = 1;
     
     
     % Remember to do one without apnea events
@@ -203,6 +225,8 @@ for each_file = 1:length(events_files)
     plm_results.epochstage = ep;
     
     ID = events_files{each_file}(1:end-4);
+    assignin('base','left_loc',cellstr(lma_defaults{2,1}));
+    assignin('base','right_loc',cellstr(lma_defaults{3,1}));    
     generate_report(plm_results,arousals,apneas,ID);    
     
     output = struct('sleepstages',sleep_stages,'arousals',arousals,...
