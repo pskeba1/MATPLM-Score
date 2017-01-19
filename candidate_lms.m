@@ -90,7 +90,7 @@ if ~isempty(CLM)
     CLM = getIMI(CLM, params.fs);
     
     % add breakpoints if IMI > 90 seconds (standard)
-    CLM(CLM(:,4) > params.maxIMI,9) = 1;
+    
     % add breakpoints if IMI < minIMI. This is according to new standards.
     % I believe we also need a breakpoint after this movement, so that a
     % short IMI cannot begin a run of PLM
@@ -139,7 +139,7 @@ if ~isempty(CLM)
         CLM = event_assoc('Arousal',CLM,ard,hgs,params.lb2,params.ub2,...
             params.fs,tformat);
     end
-    
+    CLM(CLM(:,4) > params.maxIMI,9) = 1;
 end
 
 end
@@ -194,7 +194,7 @@ for ii = 1:size(EventData, 1)
         if(event_ends(ii) - fs*lb >= PLM(jj,1) && event_ends(ii) - fs*lb <= PLM(jj,2)) ||...
                 (event_ends(ii) + fs*ub >= PLM(jj,1) && event_ends(ii) + fs*ub <= PLM(jj,2)) ||...
                 (event_ends(ii) - fs*lb <= PLM(jj,1) && event_ends(ii) + fs*ub >= PLM(jj,2))
-            newPLM(jj,11) = 1; 
+            newPLM(jj,assoc_col) = 1; 
         end
     end
 end
@@ -224,7 +224,9 @@ while i < size(CLM,1)
         CLM(i,2) = max(CLM(i,2),CLM(i+1,2));
         CLM(i,4) = CLM(i,4) + CLM(i+1,4);
         CLM(i,9) = max([CLM(i,9) CLM(i+1,9)]);
-        CLM(i,13) = 3;
+        if CLM(i,13) ~= CLM(i+1,13)
+            CLM(i,13) = 3;
+        end
         CLM(i+1,:) = [];
     end
 end

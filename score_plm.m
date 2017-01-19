@@ -15,7 +15,7 @@ load('last_used_defaults.mat','last_used');
 if cancel, return; end
 
 %%% begin sleep stage prompt
-prompt = {'REM','WAKE','N1','N2','N3','N4'};
+prompt = {'REM','WAKE','N1','N2','N3'};
 name = 'Sleep stage event names:';
 sleep_defaults = inputdlg(prompt,name,[1, length(name)+20],...
     last_used.sleep_defaults);
@@ -25,10 +25,10 @@ if isempty(sleep_defaults), return; end
 %%% begin apnea/arousl event prompts
 prompt = {'Apnea','Arousal'};
 name = 'Names of Arousal and Apnea Events Scored:';
-apnea_defaults = inputdlg(prompt,name,[10, length(name)+20],...
+reap_options = inputdlg(prompt,name,[10, length(name)+20],...
     {last_used.apnea_defaults,last_used.arousal_defaults});
 
-if isempty(apnea_defaults), return; end
+if isempty(reap_options), return; end
 
 %%% begin plm event desriptors
 prompt = {'LMA','Left Leg Location','Right Leg Location'};
@@ -40,8 +40,8 @@ if isempty(lma_defaults), return; end
 
 %%% save the defaults specified this time so we don't have to reenter
 last_used = struct();
-last_used(1).apnea_defaults = apnea_defaults{1,1};
-last_used(1).arousal_defaults = apnea_defaults{2,1};
+last_used(1).apnea_defaults = reap_options{1,1};
+last_used(1).arousal_defaults = reap_options{2,1};
 last_used(1).sleep_defaults = sleep_defaults';
 last_used.lma_defaults = lma_defaults{1,1};
 last_used.left_loc = lma_defaults{2,1};
@@ -50,13 +50,14 @@ last_used.col_defaults = col_defaults;
 
 %save('history/last_used_defaults.mat','last_used');
 save('last_used_defaults.mat','last_used');
-clear last_used;
+assignin('base','last_used',last_used);
+
 %%% we may wish to wait until later to save the actual struct, but for
 %%% testing purposes it's alright here.
 
 %%% redefine our names as cell arrays for easy use later
-apnea_defaults = cellstr(apnea_defaults{1,1});
-arousal_defaults = cellstr(apnea_defaults{2,1});
+apnea_defaults = cellstr(reap_options{1,1});
+arousal_defaults = cellstr(reap_options{2,1});
 sleep_defaults = cellstr(sleep_defaults');
 lm_ids = cellstr(lma_defaults{1,1});
 left_loc = cellstr(lma_defaults{2,1});
@@ -130,7 +131,7 @@ for each_file = 1:length(events_files)
     ep(~cellfun('isempty', strfind(T,sleep_defaults{3}))) = 1;
     ep(~cellfun('isempty', strfind(T,sleep_defaults{4}))) = 2;
     ep(~cellfun('isempty', strfind(T,sleep_defaults{5}))) = 3;
-    ep(~cellfun('isempty', strfind(T,'4'))) = 4;
+    %ep(~cellfun('isempty', strfind(T,'4'))) = 4; % This should never happen
     ep(~cellfun('isempty', strfind(T,sleep_defaults{1}))) = 5;
     
     % Select left and right LMs
