@@ -239,7 +239,7 @@ outtable = table(col1(1:13,:),col2(1:13,:),col3(1:13,:),col4(1:13,:),...
 lin_labels = {'2s','10s','20s','30s','40s','50s','60s','70s','80s','90s'};
 log_labels = {'2s','10s','20s','40s','60s','90s'};
 
-figure('units','normalized','position',[.3 .3 .4 .4])
+figure('units','normalized','position',[.3 .3 .4 .4],'Visible','off')
 
 subplot(2,2,1);
 % HEY YOU, I CHANGED THIS SO NOW IT PLOTS ALL CLM EXCEPT > 90 IMI
