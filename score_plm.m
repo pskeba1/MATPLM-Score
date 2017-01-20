@@ -1,6 +1,6 @@
 function output = score_plm()
 % output will only contain data for the last file processed to conserve
-% memory
+% memory.
 
 [events_files,event_paths] = uigetfile('.txt','Select input event files:',...
     'sample_events/BC1-Events.txt','MultiSelect','on');
@@ -11,6 +11,8 @@ button = questdlg(['Please specify which scoring options you would '...
     'like to use'],'Scoring Options','Standard','Most Recent','New','Standard');
 
 switch button
+    case ''
+        return;
     case 'Standard'
         load('standard_defaults.mat','last_used');
         sleep_defaults = last_used.sleep_defaults;
@@ -77,6 +79,13 @@ switch button
         
         if cancel, return; end
 end
+
+splashy = SplashScreen( 'Splashscreen', 'images/platmab_logo.png', ...
+'ProgressBar', 'on', ...
+'ProgressPosition', 5, ...
+'ProgressRatio', 0.4 );
+splashy.addText(10, 25, 'Processing...Please Wait', 'FontSize', 15, 'Color', [0.3922    0.4745    0.6353]);
+
 
 assignin('base','last_used',last_used); % save for later
 
@@ -233,6 +242,7 @@ for each_file = 1:length(events_files)
        'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
     
 end
+delete(splashy);
 end
 
 function [in,cancel] = getInput2(ask)
