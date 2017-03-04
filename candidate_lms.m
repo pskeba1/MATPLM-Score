@@ -144,7 +144,7 @@ end
 
 end
 
-function newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,ub,lb,fs,tformat)
+function PLM = event_assoc(event_type,PLM,EventData,HypnogramStart,ub,lb,fs,tformat)
 %% newPLM = event_assoc(event_type,PLM,EventData,HypnogramStart,lb,ub,fs)
 % PLMApnea adds Apnea Events to the 11th col of the PLM Matrix if there is
 % a PLM within -lb,+ub seconds of the event endpoint
@@ -157,17 +157,9 @@ elseif strcmp(event_type,'Apnea')
     assoc_col = 11;
 end
 
-if size(EventData, 1) == 0
-    newPLM = PLM;
-    newPLM(1,11) = 0;
-    return
-end
-    
-if EventData{1,1} == 0
-    newPLM = PLM;
-    newPLM(1,11) = 0;
-    return
-end
+
+if size(EventData, 1) == 0, return; end        
+if EventData{1,1} == 0, return; end    
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
 event_ends = zeros(size(EventData,1),1);
@@ -184,19 +176,28 @@ for ii = 1:size(EventData,1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end    
 end
 
-newPLM=PLM;
+event_intervals = [event_ends - fs*lb, event_ends + fs*ub];
 
-for ii = 1:size(EventData, 1)
-    for jj = 1:size(PLM, 1)
-        %If 'lb' seconds before the apnea endpoint is within the PLM interval,
-        %or if 'ub' seconds after the endpoint is within the PLM interval
-        %or if the PLM interval is within the apnea interval
-        if(event_ends(ii) - fs*lb >= PLM(jj,1) && event_ends(ii) - fs*lb <= PLM(jj,2)) ||...
-                (event_ends(ii) + fs*ub >= PLM(jj,1) && event_ends(ii) + fs*ub <= PLM(jj,2)) ||...
-                (event_ends(ii) - fs*lb <= PLM(jj,1) && event_ends(ii) + fs*ub >= PLM(jj,2))
-            newPLM(jj,assoc_col) = 1; 
-        end
-    end
+% THIS IS SO INEFFICIENT
+% tic; newPLM = PLM;
+% for ii = 1:size(EventData, 1)
+%     for jj = 1:size(newPLM, 1)
+%         if ~isempty(intersect(newPLM(jj,1):newPLM(jj,2),...
+%                 event_intervals(ii,1):event_intervals(ii,2)))
+%             newPLM(jj,assoc_col) = 1;
+%         end
+%     end
+% end
+% fprintf(1,'Loop version took %.3f seconds\n',toc);
+% Better? Yes, by a factor of 1000
+% tic;
+
+ev_vec = zeros(max(event_intervals(end,2),PLM(end,2)),1);
+for j = 1:size(event_intervals,1)
+    ev_vec(event_intervals(j,1):event_intervals(j,2)) = 1;
+end
+for j = 1:size(PLM,1)
+    if any(ev_vec(PLM(j,1):PLM(j,2)) == 1), PLM(j,assoc_col) = 1; end
 end
 end
     
