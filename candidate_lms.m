@@ -1,5 +1,5 @@
-function [CLM] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
-%% CLM = candidate_lms_rev1(rLM,lLM,epochStage,params, varargin)
+function [CLM,CLMnr] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
+%% CLM = candidate_lms(rLM,lLM,epochStage,params, varargin)
 % Determine candidate leg movements for PLM from monolateral LM arrays. If
 % either rLM or lLM is empty ([]), this will return monolateral candidates,
 % otherwise if both are provided they will be combined according to current
@@ -21,11 +21,16 @@ function [CLM] = candidate_lms(rLM,lLM,epochStage,params,tformat,varargin)
 %   - apd - apnea data, from the original subject struct
 %   - ard - arousal data
 %   - hgs - hypnogram start time
+%
+% IMPORTANT! This file only for use with EDF+ scoring procedure, which
+% fails when we treat the duration as a string.
 
 
 if nargin >= 6, apd = varargin{1}; end
 if nargin >= 7, ard = varargin{2}; end
 if nargin == 8, hgs = varargin{3}; end
+
+CLMnr = [];
 
 if ~isempty(rLM) && ~isempty(lLM)
     % Reduce left and right LM arrays to exclude too long movements, but add
@@ -83,11 +88,30 @@ CLM(CLM(1:end,4) > params.maxcomb |...
 
 CLM(:,4) = 0; % clear out the #combined mCLM
 
+
+% The area of the leg movement should go here. However, it is not
+% currently well defined in the literature for combined legs, and we
+% have omitted it temporarily
+CLM(:,10:12) = 0;
+if exist('ard','var') && exist('hgs','var')
+    CLM = event_assoc('Arousal',CLM,apd,hgs,params.ub2,params.lb2,...
+        params.fs,tformat);
+end
+% Add apnea events (col 11) and arousal events (col 12)
+if exist('apd','var') && exist('hgs','var')
+    CLM = event_assoc('Apnea',CLM,apd,hgs,params.ub1,params.lb1,...
+        params.fs,tformat);
+end
+
+CLMnr = CLM(CLM(:,11) == 0,:);
+
+
 % If there are no CLM, return an empty vector
 if ~isempty(CLM)
     % Add IMI (col 4), sleep stage (col
     % 6). Col 5 is reserved for PLM marks later
     CLM = getIMI(CLM, params.fs);
+    CLMnr = getIMI(CLMnr, params.fs);
     
     % add breakpoints if IMI > 90 seconds (standard)
     
@@ -96,50 +120,30 @@ if ~isempty(CLM)
     % short IMI cannot begin a run of PLM
     if params.inlm
         CLM(CLM(:,4) < params.minIMI, 9) = 2; % short IMI
+        CLMnr(CLMnr(:,4) < params.minIMI, 9) = 2; % short IMI
         
         % if the following line is uncommented, CLM with short IMI will not
         % be able to start a PLM run
         % CLM(find(CLM(:,4) < params.minIMI) + 1, 9) = 1;
     else
         CLM = removeShortIMI(CLM,params);
+        CLMnr = removeShortIMI(CLMnr,params);
     end
     
     if ~isempty(epochStage)
         CLM(:,6) = epochStage(round(CLM(:,1)/30/params.fs+.5));
+        CLMnr(:,6) = epochStage(round(CLMnr(:,1)/30/params.fs+.5));
     end
     
     % Add movement start time in minutes (col 7) and sleep epoch number
     % (col 8)
     CLM (:,7) = CLM(:,1)/(params.fs * 60);
+    CLMnr (:,7) = CLMnr(:,1)/(params.fs * 60);
     CLM (:,8) = round (CLM (:,7) * 2 + 0.5);
-    
-    % The area of the leg movement should go here. However, it is not
-    % currently well defined in the literature for combined legs, and we
-    % have omitted it temporarily
-    CLM(:,10:12) = 0;
-    
-    CLMap = [];
+    CLMnr (:,8) = round (CLMnr (:,7) * 2 + 0.5);
         
-    % Add apnea events (col 11) and arousal events (col 12)
-    if exist('apd','var') && exist('hgs','var')
-        %CLM = PLMApnea(CLM,apd,hgs,params.lb1,params.ub1,params.fs);
-        CLM = event_assoc('Apnea',CLM,apd,hgs,params.lb1,params.ub1,...
-            params.fs,tformat);
-               
-        % remove the movements and recalculate IMI. If we take this route,
-        % remember that it adds an "invisible breakpoint" - aka, the
-        % movement AFTER the respiratory event will carry the breakpoint
-        % that applied to the removed movement. i.e., if a too-long IMI
-        % movement is associated with apnea event, make sure that the next
-        % movement is broken so that the run cannot continue erroneously.
-        CLM(CLM(1:end-1,11) > 0,9) = 11; % MARK RESPIRATORY EVENT WITH 11        
-    end
-    if exist('ard','var') && exist('hgs','var')
-        %CLM = PLMArousal(CLM,ard,hgs,params.lb2,params.ub2,params.fs);
-        CLM = event_assoc('Arousal',CLM,ard,hgs,params.lb2,params.ub2,...
-            params.fs,tformat);
-    end
     CLM(CLM(:,4) > params.maxIMI,9) = 1;
+    CLMnr(CLMnr(:,4) > params.maxIMI,9) = 1;
 end
 
 end
@@ -158,8 +162,8 @@ elseif strcmp(event_type,'Apnea')
 end
 
 
-if size(EventData, 1) == 0, return; end        
-if EventData{1,1} == 0, return; end    
+if size(EventData, 1) == 0, return; end
+%if EventData{1,1} == 0, return; end     Do we need to check this anymore?
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
 event_ends = zeros(size(EventData,1),1);
@@ -171,7 +175,7 @@ start_vec = datevec(HypnogramStart);
 for ii = 1:size(EventData,1)
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% start
     event_start = datevec(EventData{ii,1},tformat);
-    event_ends(ii) = (etime(event_start,start_vec) + ...
+    event_ends(ii) = round(etime(event_start,start_vec) + ...
         str2double(EventData{ii,3})) * fs + 1;
     %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% end    
 end

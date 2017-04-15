@@ -74,16 +74,16 @@ switch button
         
         [params,cancel] = getInput2(1);
         last_used.params = params;
-                
+        
         save('last_used_defaults.mat','last_used');
         
         if cancel, return; end
 end
 
 splashy = SplashScreen( 'Splashscreen', 'images/platmab_logo.png', ...
-'ProgressBar', 'on', ...
-'ProgressPosition', 5, ...
-'ProgressRatio', 0.4 );
+    'ProgressBar', 'on', ...
+    'ProgressPosition', 5, ...
+    'ProgressRatio', 0.4 );
 splashy.addText(10, 25, 'Processing...Please Wait', 'FontSize', 15, 'Color', [0.3922    0.4745    0.6353]);
 
 
@@ -173,7 +173,7 @@ for each_file = 1:length(events_files)
                 strfind(lms{:,col_defaults.loc},left_loc{which_name})),:)];
         end
         for which_name = 1:length(right_loc)
-            rLM_tbl = [rLM_tbl ; lms(~cellfun('isempty',... 
+            rLM_tbl = [rLM_tbl ; lms(~cellfun('isempty',...
                 strfind(lms{:,col_defaults.loc},right_loc{which_name})),:)];
         end
     else
@@ -204,42 +204,64 @@ for each_file = 1:length(events_files)
     colsneeded = [col_defaults.time col_defaults.event col_defaults.dur];
     if ~isempty(arousals), arcell = table2cell(arousals(:,colsneeded)); end
     if ~isempty(apneas), apcell = table2cell(apneas(:,colsneeded)); end
-           
+    
     % chop off location column for apnea/arousal
     % remember: CLMr are included in these arrays, we must remove them for
     % PLM nr
-        CLMwr = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
-    if sum(CLMwr) == 0 
+    %     CLMwr = candidate_lms(rLM,lLM,ep,params,tformat,apcell,arcell,start_time);
+    %     if sum(CLMwr) == 0
+    %         msgbox(sprintf('No candidate LMS for file %s',outfile_file),'Warning');
+    %         continue;
+    %     end
+    %
+    %     % get rid of apnea related events and recalulate imi
+    %     CLMnr = CLMwr(CLMwr(:,11) == 0,:);
+    %     CLMnr(2:end,4) = diff(CLMnr(:,1))/500;
+    %     CLMnr(CLMnr(:,4) > params.maxIMI,9) = 1;
+    %
+    %
+    %     % Remember to do one without apnea events
+    %     x = periodic_lms(CLMnr,params);
+    %     xr = periodic_lms(CLMwr,params);
+    %
+    %     plm_results = struct();
+    %     plm_results.PLMr = xr;
+    %     plm_results.PLM = x;
+    %     plm_results.PLMS = x(x(:,6) > 0,:);
+    %     plm_results.CLMr = CLMwr;
+    %     plm_results.CLM = CLMnr;
+    %     plm_results.CLMS = CLMnr(CLMnr(:,6) > 0,:);
+    %     plm_results.epochstage = ep;
+    %
+    %     ID = events_files{each_file}(1:end-4);
+    %     assignin('base','left_loc',cellstr(lma_defaults{2,1}));
+    %     assignin('base','right_loc',cellstr(lma_defaults{3,1}));
+    %     generate_report(plm_results,arousals,apneas,ID);
+    
+    [CLM,CLMnr] = candidate_lms(rLM,lLM,ep,params,tformat,apneas,arousals,start_time);
+    if sum(CLM) == 0
         msgbox(sprintf('No candidate LMS for file %s',outfile_file),'Warning');
-        continue;        
+        continue;
     end
     
-    % get rid of apnea related events and recalulate imi
-    CLMnr = CLMwr(CLMwr(:,11) == 0,:);
-    CLMnr(2:end,4) = diff(CLMnr(:,1))/500;
-    CLMnr(CLMnr(:,4) > params.maxIMI,9) = 1;
-    
+    plm_results = struct();
+    plm_results.CLMnr = CLMnr;
+    plm_results.CLM = CLM;
     
     % Remember to do one without apnea events
-    x = periodic_lms(CLMnr,params);
-    xr = periodic_lms(CLMwr,params);
-    
-    plm_results = struct();
-    plm_results.PLMr = xr;
-    plm_results.PLM = x;
-    plm_results.PLMS = x(x(:,6) > 0,:);
-    plm_results.CLMr = CLMwr;
-    plm_results.CLM = CLMnr;
-    plm_results.CLMS = CLMnr(CLMnr(:,6) > 0,:);    
+    plm_results.PLMnr = periodic_lms(CLMnr,params);
+    plm_results.PLM = periodic_lms(CLM,params);
     plm_results.epochstage = ep;
+    plm_results.lLM = lLM;
+    plm_results.rLM = rLM;
+    plm_results.arousals = arousals;
+    plm_results.apneas = apneas;
     
     ID = events_files{each_file}(1:end-4);
-    assignin('base','left_loc',cellstr(lma_defaults{2,1}));
-    assignin('base','right_loc',cellstr(lma_defaults{3,1}));    
-    generate_report(plm_results,arousals,apneas,ID);    
+    generate_report(plm_results,arousals,apneas,ID);
     
     output = struct('sleepstages',sleep_stages,'arousals',arousals,...
-       'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
+        'apneas',apneas,'lms',lms,'tformat',tformat,'plm_results',plm_results);
     
 end
 delete(splashy);
@@ -374,7 +396,7 @@ Formats(1,2).style = 'radiobutton';
 Formats(1,2).format = 'integer';
 Formats(1,2).items = [1; 2; 3; 4; 5; 6];
 DefAns.event = col_defaults.event;
- 
+
 Prompt(end+1,:) = {'Duration' 'dur',[]};
 Formats(1,3).type = 'list';
 Formats(1,3).style = 'radiobutton';
